@@ -17,7 +17,7 @@ To add `kuddle` to your project:
 ```elixir
 defp deps do
   [
-    {:kuddle, "~> 0.1.0"},
+    {:kuddle, "~> 0.2.0"},
   ]
 end
 ```
