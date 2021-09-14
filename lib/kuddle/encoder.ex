@@ -1,7 +1,15 @@
 defmodule Kuddle.Encoder do
+  @moduledoc """
+  Encodes a Kuddle document into a KDL blob
+  """
   alias Kuddle.Value
   alias Kuddle.Node
 
+  import Kuddle.Utils
+
+  @doc """
+  Encodes a kuddle document as a KDL string
+  """
   @spec encode(Kuddle.Decoder.document()) ::
           {:ok, String.t()}
           | {:error, term()}
@@ -134,6 +142,10 @@ defmodule Kuddle.Encoder do
     IO.iodata_to_binary(Enum.reverse(acc))
   end
 
+  defp do_encode_string(<<"/", rest::binary>>, acc) do
+    do_encode_string(rest, ["\\/" | acc])
+  end
+
   defp do_encode_string(<<"\\", rest::binary>>, acc) do
     do_encode_string(rest, ["\\\\" | acc])
   end
@@ -142,8 +154,24 @@ defmodule Kuddle.Encoder do
     do_encode_string(rest, ["\\\"" | acc])
   end
 
+  defp do_encode_string(<<"\b", rest::binary>>, acc) do
+    do_encode_string(rest, ["\\b" | acc])
+  end
+
+  defp do_encode_string(<<"\f", rest::binary>>, acc) do
+    do_encode_string(rest, ["\\f" | acc])
+  end
+
+  defp do_encode_string(<<"\r", rest::binary>>, acc) do
+    do_encode_string(rest, ["\\r" | acc])
+  end
+
   defp do_encode_string(<<"\n", rest::binary>>, acc) do
     do_encode_string(rest, ["\\n" | acc])
+  end
+
+  defp do_encode_string(<<"\t", rest::binary>>, acc) do
+    do_encode_string(rest, ["\\t" | acc])
   end
 
   defp do_encode_string(<<c::utf8, rest::binary>>, acc) do
@@ -151,7 +179,7 @@ defmodule Kuddle.Encoder do
   end
 
   defp encode_node_name(name) do
-    if name =~ ~r/\A[a-zA-Z_][a-zA-Z0-9_]*\z/ do
+    if valid_identifier?(name) and not need_quote?(name) do
       name
     else
       encode_string(name)

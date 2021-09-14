@@ -17,6 +17,7 @@ defmodule Kuddle.Value do
                     | :float
                     | :boolean
                     | :string
+                    | :null
 
   @type t :: %__MODULE__{
     value: any(),

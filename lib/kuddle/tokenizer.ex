@@ -130,12 +130,24 @@ defmodule Kuddle.Tokenizer do
     do_tokenize(rest, :dquote_string, [<<unicode::utf8>> | acc], doc)
   end
 
+  defp do_tokenize(<<"\\\"", rest::binary>>, :dquote_string, acc, doc) do
+    do_tokenize(rest, :dquote_string, ["\"" | acc], doc)
+  end
+
   defp do_tokenize(<<"\\r", rest::binary>>, :dquote_string, acc, doc) do
     do_tokenize(rest, :dquote_string, ["\r" | acc], doc)
   end
 
   defp do_tokenize(<<"\\n", rest::binary>>, :dquote_string, acc, doc) do
     do_tokenize(rest, :dquote_string, ["\n" | acc], doc)
+  end
+
+  defp do_tokenize(<<"\\b", rest::binary>>, :dquote_string, acc, doc) do
+    do_tokenize(rest, :dquote_string, ["\b" | acc], doc)
+  end
+
+  defp do_tokenize(<<"\\f", rest::binary>>, :dquote_string, acc, doc) do
+    do_tokenize(rest, :dquote_string, ["\f" | acc], doc)
   end
 
   defp do_tokenize(<<"\\s", rest::binary>>, :dquote_string, acc, doc) do
@@ -148,6 +160,10 @@ defmodule Kuddle.Tokenizer do
 
   defp do_tokenize(<<"\\\\", rest::binary>>, :dquote_string, acc, doc) do
     do_tokenize(rest, :dquote_string, ["\\" | acc], doc)
+  end
+
+  defp do_tokenize(<<"\\/", rest::binary>>, :dquote_string, acc, doc) do
+    do_tokenize(rest, :dquote_string, ["/" | acc], doc)
   end
 
   defp do_tokenize(<<c::utf8, rest::binary>>, :dquote_string, acc, doc) do
@@ -186,6 +202,10 @@ defmodule Kuddle.Tokenizer do
     do_tokenize(rest, state, [<<c::utf8>> | acc], doc)
   end
 
+  defp do_tokenize(<<"\r\n", rest::binary>>, :default, nil, doc) do
+    do_tokenize(rest, :default, nil, [{:crnl, 1} | doc])
+  end
+
   defp do_tokenize(<<"\s", rest::binary>>, :default, nil, doc) do
     len = byte_size(rest)
     rest = String.trim_leading(rest, "\s")
@@ -197,12 +217,12 @@ defmodule Kuddle.Tokenizer do
     do_tokenize(rest, :default, nil, [{:space, {"\t", 1}} | doc])
   end
 
-  defp do_tokenize(<<"\n", rest::binary>>, :default, nil, doc) do
+  defp do_tokenize(<<"\r", rest::binary>>, :default, nil, doc) do
     do_tokenize(rest, :default, nil, [{:nl, 1} | doc])
   end
 
-  defp do_tokenize(<<"\r\n", rest::binary>>, :default, nil, doc) do
-    do_tokenize(rest, :default, nil, [{:crnl, 1} | doc])
+  defp do_tokenize(<<"\n", rest::binary>>, :default, nil, doc) do
+    do_tokenize(rest, :default, nil, [{:nl, 1} | doc])
   end
 
   defp do_tokenize(<<"=", rest::binary>>, :default, nil, doc) do
@@ -217,6 +237,12 @@ defmodule Kuddle.Tokenizer do
     do_tokenize(rest, :default, nil, [{:fold, 0} | doc])
   end
 
+  @non_identifier_characters [?=, ?\n, ?\r, ?\s, ?\\, ?<, ?>, ?{, ?}, ?;, ?[, ?], ?(, ?), ?=, ?,, ?"]
+
+  defp do_tokenize(<<c::utf8, _rest::binary>> = rest, :default, nil, doc) when c in @non_identifier_characters do
+    {:ok, Enum.reverse(doc), rest}
+  end
+
   defp do_tokenize(<<c::utf8, rest::binary>>, :default, nil, doc) do
     do_tokenize(rest, :term, [<<c::utf8>>], doc)
   end
@@ -226,11 +252,9 @@ defmodule Kuddle.Tokenizer do
     do_tokenize(rest, :default, nil, [{:term, value} | doc])
   end
 
-  defp do_tokenize(<<c, _rest::binary>> = rest, :term, acc, doc) when c == ?= or
-                                                              c == ?\n or
-                                                              c == ?\r or
-                                                              c == ?\s or
-                                                              c == ?; do
+  defp do_tokenize(<<c::utf8, _rest::binary>> = rest, :term, acc, doc)
+        when c in @non_identifier_characters or
+             c >= 0x10FFFF do
     value = IO.iodata_to_binary(Enum.reverse(acc))
     do_tokenize(rest, :default, nil, [{:term, value} | doc])
   end

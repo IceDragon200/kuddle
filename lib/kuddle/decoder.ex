@@ -3,126 +3,133 @@ defmodule Kuddle.Decoder do
   alias Kuddle.Node
 
   import Kuddle.Tokenizer
+  import Kuddle.Utils
 
+  @typedoc """
+  Parsed tokens from the Tokenizer, these will be processed and converted into the final nodes for
+  the document.
+  """
   @type tokens :: Kuddle.Tokenizer.tokens()
 
+  @typedoc """
+  A single node in the Kuddle document
+  """
   @type document_node :: Node.t()
 
+  @typedoc """
+  A kuddle document is a list of Kuddle Nodes
+  """
   @type document :: [document_node()]
 
+  @doc """
+  Tokenize and parse a given KDL document.
+
+  If successful, it will return `{:ok, document, tokens}`, where document is the list of nodes that
+  were parsed and tokens are any unparsed tokens.
+  """
   @spec decode(String.t()) ::
           {:ok, document(), tokens()}
           | {:error, term()}
   def decode(blob) when is_binary(blob) do
     case tokenize(blob) do
       {:ok, tokens, ""} ->
-        parse(tokens)
+        decode(tokens)
 
       {:error, _} = err ->
         err
     end
   end
 
-  defp parse(tokens) do
-    do_parse(tokens, {:default, 0}, [], [])
+  def decode(tokens) when is_list(tokens) do
+    parse(tokens, {:default, 0}, [], [])
   end
 
-  defp do_parse([], {:default, 0}, [], doc) do
+  defp parse([], {:default, 0}, [], doc) do
     handle_parse_exit([], doc)
   end
 
-  defp do_parse([{:annotation, _value} = annotation | tokens], {:default, _} = state, acc, doc) do
-    do_parse(tokens, state, [annotation | acc], doc)
+  defp parse([{:annotation, _value} = annotation | tokens], {:default, _} = state, acc, doc) do
+    parse(tokens, state, [annotation | acc], doc)
   end
 
-  defp do_parse([{:slashdash, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([{:slashdash, _} | tokens], {:default, _} = state, acc, doc) do
     # add the slashdash to the document accumulator
     # when the next parse is done, the slashdash will cause the next item in the accumulator to
     # be dropped
-    do_parse(tokens, state, acc, [:slashdash | doc])
+    parse(tokens, state, acc, [:slashdash | doc])
   end
 
-  defp do_parse([{:comment, _} | tokens], {:default, _} = state, acc, doc) do
-    do_parse(tokens, state, acc, doc)
+  defp parse([{:comment, _} | tokens], {:default, _} = state, acc, doc) do
+    parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:fold, _} | tokens], {:default, _} = state, acc, doc) do
-    do_parse(fold_leading_tokens(tokens), state, acc, doc)
+  defp parse([{:fold, _} | tokens], {:default, _} = state, acc, doc) do
+    parse(fold_leading_tokens(tokens), state, acc, doc)
   end
 
-  defp do_parse([{:sc, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([{:sc, _} | tokens], {:default, _} = state, acc, doc) do
     # loose semi-colon
-    do_parse(tokens, state, acc, doc)
+    parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:nl, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([{:nl, _} | tokens], {:default, _} = state, acc, doc) do
     # trim leading newlines
-    do_parse(tokens, state, acc, doc)
+    parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:space, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([{:space, _} | tokens], {:default, _} = state, acc, doc) do
     # trim leading space
-    do_parse(tokens, state, acc, doc)
+    parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:term, name} | tokens], {:default, depth}, acc, doc) do
+  defp parse([{:term, name} | tokens], {:default, depth}, acc, doc) do
     # node
     annotations = extract_annotations(acc)
-    do_parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+    parse(tokens, {:node, depth}, {name, annotations, []}, doc)
   end
 
-  defp do_parse([{:dquote_string, name} | tokens], {:default, depth}, acc, doc) do
+  defp parse([{:dquote_string, name} | tokens], {:default, depth}, acc, doc) do
     # double quote initiated node
     annotations = extract_annotations(acc)
-    do_parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+    parse(tokens, {:node, depth}, {name, annotations, []}, doc)
   end
 
-  defp do_parse([{:raw_string, name} | tokens], {:default, depth}, acc, doc) do
+  defp parse([{:raw_string, name} | tokens], {:default, depth}, acc, doc) do
     # raw string node
     annotations = extract_annotations(acc)
-    do_parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+    parse(tokens, {:node, depth}, {name, annotations, []}, doc)
   end
 
-  defp do_parse([{:slashdash, _} | tokens], {:node, _} = state, {name, annotations, attrs}, doc) do
-    do_parse(tokens, state, {name, annotations, [:slashdash | attrs]}, doc)
+  defp parse([{:slashdash, _} | tokens], {:node, _} = state, {name, annotations, attrs}, doc) do
+    parse(tokens, state, {name, annotations, [:slashdash | attrs]}, doc)
   end
 
-  defp do_parse([{:comment, _} | tokens], {:node, _} = state, acc, doc) do
+  defp parse([{:comment, _} | tokens], {:node, _} = state, acc, doc) do
     # trim comments
-    do_parse(tokens, state, acc, doc)
+    parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:space, _} | tokens], {:node, _} = state, acc, doc) do
+  defp parse([{:space, _} | tokens], {:node, _} = state, acc, doc) do
     # trim leading spaces in node
-    do_parse(tokens, state, acc, doc)
+    parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:fold, _} | tokens], {:node, _} = state, acc, doc) do
-    do_parse(fold_leading_tokens(tokens), state, acc, doc)
+  defp parse([{:fold, _} | tokens], {:node, _} = state, acc, doc) do
+    parse(fold_leading_tokens(tokens), state, acc, doc)
   end
 
-  defp do_parse([{:nl, _} | tokens], {:node, depth}, {name, annotations, attrs}, doc) do
+  defp parse([{token_type, _} | tokens], {:node, depth}, {name, node_annotations, attrs}, doc) when token_type in [:nl, :sc] do
     node = %Node{
       name: name,
-      annotations: annotations,
+      annotations: node_annotations,
       attributes: resolve_node_attributes(attrs),
       children: nil,
     }
-    do_parse(tokens, {:default, depth}, [], [node | doc])
+    parse(tokens, {:default, depth}, [], [node | doc])
   end
 
-  defp do_parse([{:sc, _} | tokens], {:node, depth}, {name, annotations, attrs}, doc) do
-    node = %Node{
-      name: name,
-      annotations: annotations,
-      attributes: resolve_node_attributes(attrs),
-      children: nil,
-    }
-    do_parse(tokens, {:default, depth}, [], [node | doc])
-  end
-
-  defp do_parse([{:open_block, _} | tokens], {:node, depth}, {name, annotations, attrs}, doc) do
-    case do_parse(tokens, {:default, depth + 1}, [], []) do
+  defp parse([{:open_block, _} | tokens], {:node, depth}, {name, node_annotations, attrs}, doc) do
+    case parse(tokens, {:default, depth + 1}, [], []) do
       {:ok, children, tokens} ->
         case trim_leading_space(tokens) do
           [{:close_block, _} | tokens] ->
@@ -132,7 +139,7 @@ defmodule Kuddle.Decoder do
                   # discard the children
                   %Node{
                     name: name,
-                    annotations: annotations,
+                    annotations: node_annotations,
                     attributes: resolve_node_attributes(attrs),
                     children: nil,
                   }
@@ -140,13 +147,13 @@ defmodule Kuddle.Decoder do
                 attrs ->
                   %Node{
                     name: name,
-                    annotations: annotations,
+                    annotations: node_annotations,
                     attributes: resolve_node_attributes(attrs),
                     children: children,
                   }
               end
 
-            do_parse(tokens, {:default, depth}, [], [node | doc])
+            parse(tokens, {:default, depth}, [], [node | doc])
         end
 
       {:error, _} = err ->
@@ -154,20 +161,55 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp do_parse([token | tokens], {:node, _} = state, {name, annotations, attrs}, doc) do
+  defp parse([{:annotation, _} = annotation | tokens], {:node, _} = state, {name, node_annotations, attrs}, doc) do
+    attrs = [annotation | attrs]
+    parse(tokens, state, {name, node_annotations, attrs}, doc)
+  end
+
+  defp parse([token | tokens], {:node, _} = state, {name, node_annotations, attrs}, doc) do
     case token_to_value(token) do
-      {:ok, key} ->
+      {:ok, %Value{} = key} ->
+        {key_annotations, attrs} =
+          case attrs do
+            [{:annotation, annotation} | attrs] ->
+              {[annotation], attrs}
+
+            attrs ->
+              {[], attrs}
+          end
+
+        key = %{key | annotations: key.annotations ++ key_annotations}
+
         case trim_leading_space(tokens) do
           [{:=, _} | tokens] ->
-            [token | tokens] = trim_leading_space(tokens)
-            case token_to_value(token) do
-              {:ok, value} ->
-                do_parse(tokens, state, {name, annotations, [{key, value} | attrs]}, doc)
+            tokens = trim_leading_space(tokens)
+            {value_annotations, tokens} =
+              case tokens do
+                [{:annotation, annotation} | tokens] ->
+                  {[annotation], tokens}
 
+                tokens ->
+                  {[], tokens}
+              end
+
+            [token | tokens] = tokens
+            case token_to_value(token) do
+              {:ok, %Value{} = value} ->
+                value = %{value | annotations: value.annotations ++ value_annotations}
+                parse(tokens, state, {name, node_annotations, [{key, value} | attrs]}, doc)
+
+              {:error, _} = err ->
+                err
             end
 
           tokens ->
-            do_parse(tokens, state, {name, annotations, [key | attrs]}, doc)
+            case key do
+              %{type: :id} ->
+                {:error, {:bare_identifier, key}}
+
+              _ ->
+                parse(tokens, state, {name, node_annotations, [key | attrs]}, doc)
+            end
         end
 
       {:error, _} = err ->
@@ -175,17 +217,17 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp do_parse([], {:node, depth}, {name, annotations, attrs}, doc) do
+  defp parse([], {:node, depth}, {name, node_annotations, attrs}, doc) do
     node = %Node{
       name: name,
-      annotations: annotations,
+      annotations: node_annotations,
       attributes: resolve_node_attributes(attrs),
       children: nil,
     }
-    do_parse([], {:default, depth}, [], [node | doc])
+    parse([], {:default, depth}, [], [node | doc])
   end
 
-  defp do_parse([{:close_block, _} | _tokens] = tokens, {:default, _depth}, [], doc) do
+  defp parse([{:close_block, _} | _tokens] = tokens, {:default, _depth}, [], doc) do
     handle_parse_exit(tokens, doc)
   end
 
@@ -210,7 +252,24 @@ defmodule Kuddle.Decoder do
   end
 
   defp resolve_node_attributes(acc) do
-    handle_slashdashes(Enum.reverse(acc), [])
+    acc
+    |> Enum.reverse()
+    |> handle_slashdashes([])
+    |> Enum.reduce([], fn
+      {key, value}, acc ->
+        # deduplicate attributes
+        acc =
+          Enum.reject(acc, fn
+            {key2, _value} -> key2.value == key.value
+            _ -> false
+          end)
+
+        [{key, value} | acc]
+
+      value, acc ->
+        [value | acc]
+    end)
+    |> Enum.reverse()
   end
 
   defp fold_leading_tokens([{:space, _} | tokens]) do
@@ -254,27 +313,27 @@ defmodule Kuddle.Decoder do
   end
 
   defp decode_term("null") do
-    {:ok, %Value{value: nil}}
+    {:ok, %Value{type: :null, value: nil}}
   end
 
   defp decode_term(<<"0b", rest::binary>>) do
-    decode_bin_integer(rest, [])
+    decode_bin_integer(rest)
   end
 
   defp decode_term(<<"0o", rest::binary>>) do
-    decode_oct_integer(rest, [])
+    decode_oct_integer(rest)
   end
 
   defp decode_term(<<"0x", rest::binary>>) do
-    decode_hex_integer(rest, [])
+    decode_hex_integer(rest)
   end
 
-  defp decode_term(<<".", c::utf8, _rest::binary>> = value) when c in ?0..?9 do
-    decode_float("0" <> value)
+  defp decode_term("") do
+    {:error, :no_term}
   end
 
   defp decode_term(term) do
-    case decode_dec_integer(term, []) do
+    case decode_dec_integer(term) do
       {:ok, value} ->
         {:ok, value}
 
@@ -289,19 +348,25 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp decode_bin_integer(<<"_", rest::binary>>, acc) do
-    decode_bin_integer(rest, acc)
-  end
+  defp decode_bin_integer(bin, state \\ :start, acc \\ [])
 
-  defp decode_bin_integer(<<c::utf8, rest::binary>>, acc) when c in [?0, ?1, ?+, ?-] do
-    decode_bin_integer(rest, [<<c::utf8>> | acc])
-  end
-
-  defp decode_bin_integer(<<_::utf8, _rest::binary>>, _acc) do
+  defp decode_bin_integer(<<>>, :start, _acc) do
     {:error, :invalid_bin_integer_format}
   end
 
-  defp decode_bin_integer(<<>>, acc) do
+  defp decode_bin_integer(<<"_", rest::binary>>, :body, acc) do
+    decode_bin_integer(rest, :body, acc)
+  end
+
+  defp decode_bin_integer(<<c::utf8, rest::binary>>, _, acc) when c in [?0, ?1] do
+    decode_bin_integer(rest, :body, [<<c::utf8>> | acc])
+  end
+
+  defp decode_bin_integer(<<_::utf8, _rest::binary>>, _, _acc) do
+    {:error, :invalid_bin_integer_format}
+  end
+
+  defp decode_bin_integer(<<>>, :body, acc) do
     case decode_integer(acc, 2) do
       {:ok, value} ->
         {:ok, %{value | format: :bin}}
@@ -311,19 +376,25 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp decode_oct_integer(<<"_", rest::binary>>, acc) do
-    decode_oct_integer(rest, acc)
-  end
+  defp decode_oct_integer(bin, state \\ :start, acc \\ [])
 
-  defp decode_oct_integer(<<c::utf8, rest::binary>>, acc) when c in ?0..?7 or c in [?+, ?-] do
-    decode_oct_integer(rest, [<<c::utf8>> | acc])
-  end
-
-  defp decode_oct_integer(<<_::utf8, _rest::binary>>, _acc) do
+  defp decode_oct_integer(<<>>, :start, _acc) do
     {:error, :invalid_oct_integer_format}
   end
 
-  defp decode_oct_integer(<<>>, acc) do
+  defp decode_oct_integer(<<"_", rest::binary>>, :body, acc) do
+    decode_oct_integer(rest, :body, acc)
+  end
+
+  defp decode_oct_integer(<<c::utf8, rest::binary>>, _, acc) when c in ?0..?7 do
+    decode_oct_integer(rest, :body, [<<c::utf8>> | acc])
+  end
+
+  defp decode_oct_integer(<<_::utf8, _rest::binary>>, _, _acc) do
+    {:error, :invalid_oct_integer_format}
+  end
+
+  defp decode_oct_integer(<<>>, :body, acc) do
     case decode_integer(acc, 8) do
       {:ok, value} ->
         {:ok, %{value | format: :oct}}
@@ -333,19 +404,29 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp decode_dec_integer(<<"_", rest::binary>>, acc) do
-    decode_dec_integer(rest, acc)
-  end
+  defp decode_dec_integer(bin, state \\ :start, acc \\ [])
 
-  defp decode_dec_integer(<<c::utf8, rest::binary>>, acc) when c in ?0..?9 or c in [?+, ?-] do
-    decode_dec_integer(rest, [<<c::utf8>> | acc])
-  end
-
-  defp decode_dec_integer(<<_::utf8, _rest::binary>>, _acc) do
+  defp decode_dec_integer(<<>>, :start, _acc) do
     {:error, :invalid_dec_integer_format}
   end
 
-  defp decode_dec_integer(<<>>, acc) do
+  defp decode_dec_integer(<<"_", rest::binary>>, :body, acc) do
+    decode_dec_integer(rest, :body, acc)
+  end
+
+  defp decode_dec_integer(<<c::utf8, rest::binary>>, :start, acc) when c in [?+, ?-] do
+    decode_dec_integer(rest, :start, [<<c::utf8>> | acc])
+  end
+
+  defp decode_dec_integer(<<c::utf8, rest::binary>>, _, acc) when c in ?0..?9 do
+    decode_dec_integer(rest, :body, [<<c::utf8>> | acc])
+  end
+
+  defp decode_dec_integer(<<_::utf8, _rest::binary>>, _, _acc) do
+    {:error, :invalid_dec_integer_format}
+  end
+
+  defp decode_dec_integer(<<>>, :body, acc) do
     case decode_integer(acc, 10) do
       {:ok, value} ->
         {:ok, %{value | format: :dec}}
@@ -355,22 +436,27 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp decode_hex_integer(<<"_", rest::binary>>, acc) do
-    decode_hex_integer(rest, acc)
+  defp decode_hex_integer(bin, state \\ :start, acc \\ [])
+
+  defp decode_hex_integer(<<>>, :start, _acc) do
+    {:error, :invalid_hex_integer_format}
   end
 
-  defp decode_hex_integer(<<c::utf8, rest::binary>>, acc) when c in ?0..?9 or
-                                                               c in ?A..?F or
-                                                               c in ?a..?f or
-                                                               c in [?+, ?-] do
-    decode_hex_integer(rest, [<<c::utf8>> | acc])
+  defp decode_hex_integer(<<"_", rest::binary>>, :body, acc) do
+    decode_hex_integer(rest, :body, acc)
   end
 
-  defp decode_hex_integer(<<_::utf8, _rest::binary>>, _acc) do
-    {:error, :invalid_oct_integer_format}
+  defp decode_hex_integer(<<c::utf8, rest::binary>>, _, acc) when c in ?0..?9 or
+                                                                  c in ?A..?F or
+                                                                  c in ?a..?f do
+    decode_hex_integer(rest, :body, [<<c::utf8>> | acc])
   end
 
-  defp decode_hex_integer(<<>>, acc) do
+  defp decode_hex_integer(<<_::utf8, _rest::binary>>, _, _acc) do
+    {:error, :invalid_hex_integer_format}
+  end
+
+  defp decode_hex_integer(<<>>, :body, acc) do
     case decode_integer(acc, 16) do
       {:ok, value} ->
         {:ok, %{value | format: :hex}}
@@ -394,7 +480,7 @@ defmodule Kuddle.Decoder do
   end
 
   defp decode_float(value) do
-    case decode_float_string(value, :start, []) do
+    case parse_float_string(value) do
       {:ok, value} ->
         case Decimal.parse(value) do
           {:ok, %Decimal{} = decimal} ->
@@ -402,6 +488,9 @@ defmodule Kuddle.Decoder do
 
           {%Decimal{} = decimal, ""} ->
             {:ok, %Value{value: decimal, type: :float}}
+
+          {%Decimal{}, _} ->
+            {:error, :invalid_float_format}
 
           :error ->
             {:error, :invalid_float_format}
@@ -426,47 +515,5 @@ defmodule Kuddle.Decoder do
 
   defp handle_slashdashes([], acc) do
     Enum.reverse(acc)
-  end
-
-  defp decode_float_string(<<>>, _, acc) do
-    {:ok, IO.iodata_to_binary(Enum.reverse(acc))}
-  end
-
-  defp decode_float_string(<<c::utf8, rest::binary>>, :start, acc) when c == ?- or
-                                                                        c == ?+  do
-    decode_float_string(rest, :start_number, [<<c::utf8>> | acc])
-  end
-
-  defp decode_float_string(<<c::utf8, rest::binary>>, state, acc) when c in ?0..?9 and state in [:start, :start_number, :body] do
-    decode_float_string(rest, :body, [<<c::utf8>> | acc])
-  end
-
-  defp decode_float_string(<<".", rest::binary>>, :body, acc) do
-    decode_float_string(rest, :body, [<<".">> | acc])
-  end
-
-  defp decode_float_string(<<"_", rest::binary>>, :body, acc) do
-    decode_float_string(rest, :body, acc)
-  end
-
-  defp decode_float_string(<<"E", rest::binary>>, :body, acc) do
-    decode_float_string(rest, :start_exponent, [<<"E">> | acc])
-  end
-
-  defp decode_float_string(<<c::utf8, rest::binary>>, :start_exponent, acc) when c == ?- or
-                                                                                 c == ?+  do
-    decode_float_string(rest, :exponent, [<<c::utf8>> | acc])
-  end
-
-  defp decode_float_string(<<c::utf8, rest::binary>>, state, acc) when c in ?0..?9 and state in [:start_exponent, :exponent] do
-    decode_float_string(rest, :exponent, [<<c::utf8>> | acc])
-  end
-
-  defp decode_float_string(<<"_", rest::binary>>, :exponent, acc) do
-    decode_float_string(rest, :exponent, acc)
-  end
-
-  defp decode_float_string(_, _state, _acc) do
-    {:error, :unexpected_characters}
   end
 end
