@@ -59,7 +59,7 @@ defmodule Kuddle.Utils do
 
   def parse_float_string(bin, state \\ :start, acc \\ [])
 
-  def parse_float_string(<<>>, :start, acc) do
+  def parse_float_string(<<>>, :start, _acc) do
     {:error, :invalid_float_format}
   end
 
