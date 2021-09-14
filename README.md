@@ -40,14 +40,73 @@ Some of the tests are still failing, mostly around parsing invalid values, since
 
 ## Supports
 
-* [x] Node
+* [x] Nodes
 
 ```elixir
-Kuddle.decode("""
-node {
-  node2 {
-    node3
-  }
-}
-""")
+%Kuddle.Node{
+  name: "node",
+  annotations: [],
+  attributes: [],
+  children: [
+    %Kuddle.Node{
+      name: "node2",
+      annotations: [],
+      attributes: [],
+      children: [
+        %Kuddle.Node{
+          name: "node3",
+          annotations: [],
+          attributes: [],
+          children: nil,
+        }
+      ]
+    }
+  ]
+} = Kuddle.decode("""
+    node {
+      node2 {
+        node3
+      }
+    }
+    """
+  )
+```
+
+* [x] Annotations
+
+```elixir
+%Kuddle.Node{
+  name: "node",
+  annotations: ["root"],
+  attributes: [],
+  children: [
+    %Kuddle.Node{
+      name: "node2",
+      annotations: [],
+      attributes: [
+        %Kuddle.Value{
+          type: :integer,
+          format: :dec,
+          annotations: ["u8"],
+          value: 23,
+        }
+      ],
+      children: [
+        %Kuddle.Node{
+          name: "node3",
+          annotations: [],
+          attributes: [],
+          children: nil,
+        }
+      ]
+    }
+  ]
+} = Kuddle.decode("""
+    (root)node {
+      node2 (u8)23 {
+        node3
+      }
+    }
+    """
+  )
 ```

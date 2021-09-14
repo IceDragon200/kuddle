@@ -20,8 +20,6 @@ defmodule Kuddle.Tokenizer do
 
   @type newline_token :: {:nl, unused::integer()}
 
-  @type carriage_return_newline_token :: {:crnl, unused::integer()}
-
   @type equal_token :: {:=, unused::integer()}
 
   @type semicolon_token :: {:sc, unused::integer()}
@@ -38,7 +36,6 @@ defmodule Kuddle.Tokenizer do
                | raw_string_token()
                | space_token()
                | newline_token()
-               | carriage_return_newline_token()
                | equal_token()
                | semicolon_token()
                | fold_token()
@@ -202,19 +199,99 @@ defmodule Kuddle.Tokenizer do
     do_tokenize(rest, state, [<<c::utf8>> | acc], doc)
   end
 
-  defp do_tokenize(<<"\r\n", rest::binary>>, :default, nil, doc) do
-    do_tokenize(rest, :default, nil, [{:crnl, 1} | doc])
-  end
-
   defp do_tokenize(<<"\s", rest::binary>>, :default, nil, doc) do
     len = byte_size(rest)
     rest = String.trim_leading(rest, "\s")
     len = len - byte_size(rest) + 1
-    do_tokenize(rest, :default, nil, [{:space, {"\s", len}} | doc])
+    do_tokenize(rest, :default, nil, [{:space, len} | doc])
   end
 
   defp do_tokenize(<<"\t", rest::binary>>, :default, nil, doc) do
-    do_tokenize(rest, :default, nil, [{:space, {"\t", 1}} | doc])
+    do_tokenize(rest, :default, nil, [{:space, "\t"} | doc])
+  end
+
+  defp do_tokenize(<<"\u{00A0}", rest::binary>>, :default, nil, doc) do
+    # No-Break Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{1680}", rest::binary>>, :default, nil, doc) do
+    # Ogham Space Mark
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2000}", rest::binary>>, :default, nil, doc) do
+    # En Quad
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2001}", rest::binary>>, :default, nil, doc) do
+    # Em Quad
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2002}", rest::binary>>, :default, nil, doc) do
+    # En Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2003}", rest::binary>>, :default, nil, doc) do
+    # Em Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2004}", rest::binary>>, :default, nil, doc) do
+    # Three-Per-Em Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2005}", rest::binary>>, :default, nil, doc) do
+    # Four-Per-Em Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2006}", rest::binary>>, :default, nil, doc) do
+    # Six-Per-Em Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2007}", rest::binary>>, :default, nil, doc) do
+    # Figure Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2008}", rest::binary>>, :default, nil, doc) do
+    # Punctuation Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2009}", rest::binary>>, :default, nil, doc) do
+    # Thin Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{200A}", rest::binary>>, :default, nil, doc) do
+    # Hair Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{202F}", rest::binary>>, :default, nil, doc) do
+    # Narrow No-Break Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{205F}", rest::binary>>, :default, nil, doc) do
+    # Medium Mathematical Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{3000}", rest::binary>>, :default, nil, doc) do
+    # Ideographic Space
+    do_tokenize(rest, :default, nil, [{:space, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\r\n", rest::binary>>, :default, nil, doc) do
+    do_tokenize(rest, :default, nil, [{:nl, 1} | doc])
   end
 
   defp do_tokenize(<<"\r", rest::binary>>, :default, nil, doc) do
@@ -222,6 +299,25 @@ defmodule Kuddle.Tokenizer do
   end
 
   defp do_tokenize(<<"\n", rest::binary>>, :default, nil, doc) do
+    do_tokenize(rest, :default, nil, [{:nl, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\f", rest::binary>>, :default, nil, doc) do
+    do_tokenize(rest, :default, nil, [{:nl, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2028}", rest::binary>>, :default, nil, doc) do
+    # Line Separator
+    do_tokenize(rest, :default, nil, [{:nl, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{2029}", rest::binary>>, :default, nil, doc) do
+    # Paragraph Separator
+    do_tokenize(rest, :default, nil, [{:nl, 1} | doc])
+  end
+
+  defp do_tokenize(<<"\u{0085}", rest::binary>>, :default, nil, doc) do
+    # Next-Line
     do_tokenize(rest, :default, nil, [{:nl, 1} | doc])
   end
 
