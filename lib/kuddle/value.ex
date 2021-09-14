@@ -1,4 +1,7 @@
 defmodule Kuddle.Value do
+  @moduledoc """
+  Used to represent a value for attributes.
+  """
   defstruct [
     value: nil,
     annotations: [],

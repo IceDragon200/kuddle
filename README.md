@@ -2,6 +2,14 @@
 
 A KDL encoder and decoder for elixir.
 
+## Version 1 when?
+
+* When I feel the documentation is complete
+* When I finally add line numbers for debugging
+* When I finally add proper errors
+
+Only then will I annoint kuddle with version 1.0.0.
+
 ## Installation
 
 To add `kuddle` to your project:

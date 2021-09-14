@@ -1,4 +1,7 @@
 defmodule Kuddle.Decoder do
+  @moduledoc """
+  Tokenizes and parses KDL documents into kuddle documents.
+  """
   alias Kuddle.Value
   alias Kuddle.Node
 
