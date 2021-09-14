@@ -162,8 +162,7 @@ defmodule Kuddle.Tokenizer do
                                                               c == ?\n or
                                                               c == ?\r or
                                                               c == ?\s or
-                                                              c == ?; or
-                                                              c == ?- do
+                                                              c == ?; do
     value = IO.iodata_to_binary(Enum.reverse(acc))
     do_tokenize(rest, :default, nil, [{:term, value} | doc])
   end
