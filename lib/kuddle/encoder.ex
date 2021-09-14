@@ -70,26 +70,31 @@ defmodule Kuddle.Encoder do
   end
 
   defp encode_node_values([%Value{} = value | rest], acc) do
-    encode_node_values(rest, [value_to_string(value) | acc])
+    encode_node_values(rest, [encode_value(value) | acc])
+  end
+
+  defp encode_node_values([{%Value{} = key, %Value{} = value} | rest], acc) do
+    result = [encode_value(key), "=", encode_value(value)]
+    encode_node_values(rest, [result | acc])
   end
 
   defp encode_node_values([], acc) do
     Enum.reverse(acc)
   end
 
-  defp value_to_string(%Value{value: nil}) do
+  defp encode_value(%Value{value: nil}) do
     "null"
   end
 
-  defp value_to_string(%Value{type: :boolean, value: value}) when is_boolean(value) do
+  defp encode_value(%Value{type: :boolean, value: value}) when is_boolean(value) do
     Atom.to_string(value)
   end
 
-  defp value_to_string(%Value{type: :string, value: value}) when is_binary(value) do
+  defp encode_value(%Value{type: :string, value: value}) when is_binary(value) do
     encode_string(value)
   end
 
-  defp value_to_string(%Value{type: :integer, value: value, format: format}) when is_integer(value) do
+  defp encode_value(%Value{type: :integer, value: value, format: format}) when is_integer(value) do
     case format do
       :bin ->
         ["0b", Integer.to_string(value, 2)]
@@ -105,8 +110,12 @@ defmodule Kuddle.Encoder do
     end
   end
 
-  defp value_to_string(%Value{type: :float, value: value}) when is_float(value) do
-    Float.to_string(value)
+  defp encode_value(%Value{type: :float, value: value}) when is_float(value) do
+    String.upcase(Float.to_string(value))
+  end
+
+  defp encode_value(%Value{type: :id, value: value}) when is_binary(value) do
+    value
   end
 
   defp encode_string(str) do
@@ -134,7 +143,7 @@ defmodule Kuddle.Encoder do
   end
 
   defp encode_node_name(name) do
-    if name =~ ~r/\A[a-zA-Z][a-zA-Z0-9]*\z/ do
+    if name =~ ~r/\A[a-zA-Z_][a-zA-Z0-9_]*\z/ do
       name
     else
       encode_string(name)
