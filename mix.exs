@@ -3,25 +3,44 @@ defmodule Kuddle.MixProject do
 
   def project do
     [
+      name: "Kuddle",
       app: :kuddle,
+      description: description(),
       version: "0.1.0",
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      package: package(),
+      source_url: "https://github.com/IceDragon200/kuddle",
+      homepage_url: "https://github.com/IceDragon200/kuddle",
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
+  defp description do
+    """
+    Kuddle is KDL Decoder, Encoder and utility library for Elixir.
+    """
+  end
+
   defp deps do
     [
       {:decimal, "~> 1.0 or ~> 2.0"},
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Corey Powell"],
+      licenses: ["MIT"],
+      links: %{
+        "GitHub" => "https://github.com/IceDragon200/kuddle"
+      },
     ]
   end
 end
