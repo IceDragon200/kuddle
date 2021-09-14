@@ -399,7 +399,7 @@ defmodule Kuddle.Decoder do
     decode_float_string(rest, :exponent, [<<c::utf8>> | acc])
   end
 
-  defp decode_float_string(<<c::utf8, rest::binary>>, :exponent, acc) when c in ?0..?9 do
+  defp decode_float_string(<<c::utf8, rest::binary>>, state, acc) when c in ?0..?9 and state in [:start_exponent, :exponent] do
     decode_float_string(rest, :exponent, [<<c::utf8>> | acc])
   end
 
