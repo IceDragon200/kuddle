@@ -55,6 +55,13 @@ defmodule Kuddle.Tokenizer do
     do_tokenize(rest, :default, nil, [{:dquote_string, string} | doc])
   end
 
+  defp do_tokenize(<<"\\u{", rest::binary>>, :dquote_string, acc, doc) do
+    [unicode, rest] = String.split(rest, "}", parts: 2)
+    unicode = String.to_integer(unicode, 16)
+
+    do_tokenize(rest, :dquote_string, [<<unicode::utf8>> | acc], doc)
+  end
+
   defp do_tokenize(<<"\\r", rest::binary>>, :dquote_string, acc, doc) do
     do_tokenize(rest, :dquote_string, ["\r" | acc], doc)
   end
