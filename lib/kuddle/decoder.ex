@@ -97,8 +97,21 @@ defmodule Kuddle.Decoder do
       {:ok, children, tokens} ->
         case trim_leading_space(tokens) do
           [{:close_block, _} | tokens] ->
-            do_parse(tokens, {:default, depth}, nil, [{:node, name, resolve_node_values(acc), children} | doc])
+            node =
+              case acc do
+                [:slashdash | acc] ->
+                  # discard the children
+                  {:node, name, resolve_node_values(acc), nil}
+
+                acc ->
+                  {:node, name, resolve_node_values(acc), children}
+              end
+
+            do_parse(tokens, {:default, depth}, nil, [node | doc])
         end
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -117,6 +130,9 @@ defmodule Kuddle.Decoder do
           tokens ->
             do_parse(tokens, state, {name, [key | acc]}, doc)
         end
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -199,16 +215,16 @@ defmodule Kuddle.Decoder do
   end
 
   defp decode_term(term) do
-    case Integer.parse(term) do
-      {int, ""} ->
-        {:ok, %Value{value: int, type: :integer}}
+    case decode_dec_integer(term, []) do
+      {:ok, value} ->
+        {:ok, value}
 
-      _ ->
-        case Float.parse(term) do
-          {flt, ""} ->
-            {:ok, %Value{value: flt, type: :float}}
+      {:error, _} ->
+        case decode_float(term) do
+          {:ok, value} ->
+            {:ok, value}
 
-          _ ->
+          {:error, _} ->
             {:ok, %Value{value: term, type: :id}}
         end
     end
@@ -218,7 +234,7 @@ defmodule Kuddle.Decoder do
     decode_bin_integer(rest, acc)
   end
 
-  defp decode_bin_integer(<<c::utf8, rest::binary>>, acc) when c in [?0, ?1] do
+  defp decode_bin_integer(<<c::utf8, rest::binary>>, acc) when c in [?0, ?1, ?+, ?-] do
     decode_bin_integer(rest, [<<c::utf8>> | acc])
   end
 
@@ -240,7 +256,7 @@ defmodule Kuddle.Decoder do
     decode_oct_integer(rest, acc)
   end
 
-  defp decode_oct_integer(<<c::utf8, rest::binary>>, acc) when c in ?0..?7 do
+  defp decode_oct_integer(<<c::utf8, rest::binary>>, acc) when c in ?0..?7 or c in [?+, ?-] do
     decode_oct_integer(rest, [<<c::utf8>> | acc])
   end
 
@@ -262,7 +278,7 @@ defmodule Kuddle.Decoder do
     decode_dec_integer(rest, acc)
   end
 
-  defp decode_dec_integer(<<c::utf8, rest::binary>>, acc) when c in ?0..?9 do
+  defp decode_dec_integer(<<c::utf8, rest::binary>>, acc) when c in ?0..?9 or c in [?+, ?-] do
     decode_dec_integer(rest, [<<c::utf8>> | acc])
   end
 
@@ -286,7 +302,8 @@ defmodule Kuddle.Decoder do
 
   defp decode_hex_integer(<<c::utf8, rest::binary>>, acc) when c in ?0..?9 or
                                                                c in ?A..?F or
-                                                               c in ?a..?f do
+                                                               c in ?a..?f or
+                                                               c in [?+, ?-] do
     decode_hex_integer(rest, [<<c::utf8>> | acc])
   end
 
@@ -311,16 +328,28 @@ defmodule Kuddle.Decoder do
 
       {_int, _} ->
         {:error, :invalid_integer_format}
+
+      :error ->
+        {:error, :invalid_integer_format}
     end
   end
 
   defp decode_float(value) do
-    case Float.parse(value) do
-      {flt, ""} ->
-        {:ok, %Value{value: flt, type: :float}}
+    case decode_float_string(value, :start, []) do
+      {:ok, value} ->
+        case Float.parse(value) do
+          {flt, ""} ->
+            {:ok, %Value{value: flt, type: :float}}
 
-      {_flt, _} ->
-        {:error, :invalid_float_format}
+          {_flt, _} ->
+            {:error, :invalid_float_format}
+
+          :error ->
+            {:error, :invalid_float_format}
+        end
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -338,5 +367,47 @@ defmodule Kuddle.Decoder do
 
   defp handle_slashdashes([], acc) do
     Enum.reverse(acc)
+  end
+
+  defp decode_float_string(<<>>, _, acc) do
+    {:ok, IO.iodata_to_binary(Enum.reverse(acc))}
+  end
+
+  defp decode_float_string(<<c::utf8, rest::binary>>, :start, acc) when c == ?- or
+                                                                        c == ?+  do
+    decode_float_string(rest, :start_number, [<<c::utf8>> | acc])
+  end
+
+  defp decode_float_string(<<c::utf8, rest::binary>>, state, acc) when c in ?0..?9 and state in [:start, :start_number, :body] do
+    decode_float_string(rest, :body, [<<c::utf8>> | acc])
+  end
+
+  defp decode_float_string(<<".", rest::binary>>, :body, acc) do
+    decode_float_string(rest, :body, [<<".">> | acc])
+  end
+
+  defp decode_float_string(<<"_", rest::binary>>, :body, acc) do
+    decode_float_string(rest, :body, acc)
+  end
+
+  defp decode_float_string(<<"E", rest::binary>>, :body, acc) do
+    decode_float_string(rest, :start_exponent, [<<"E">> | acc])
+  end
+
+  defp decode_float_string(<<c::utf8, rest::binary>>, :start_exponent, acc) when c == ?- or
+                                                                                 c == ?+  do
+    decode_float_string(rest, :exponent, [<<c::utf8>> | acc])
+  end
+
+  defp decode_float_string(<<c::utf8, rest::binary>>, :exponent, acc) when c in ?0..?9 do
+    decode_float_string(rest, :exponent, [<<c::utf8>> | acc])
+  end
+
+  defp decode_float_string(<<"_", rest::binary>>, :exponent, acc) do
+    decode_float_string(rest, :exponent, acc)
+  end
+
+  defp decode_float_string(_, _state, _acc) do
+    {:error, :unexpected_characters}
   end
 end
