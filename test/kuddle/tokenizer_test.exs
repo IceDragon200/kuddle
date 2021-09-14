@@ -5,7 +5,7 @@ defmodule Kuddle.TokenizerTest do
 
   describe "tokenize/1" do
     test "can tokenize an empty raw string" do
-      assert {:ok, tokens} = tokenize("r\"\"")
+      assert {:ok, tokens, ""} = tokenize("r\"\"")
 
       assert [
         {:raw_string, ""}
@@ -13,7 +13,7 @@ defmodule Kuddle.TokenizerTest do
     end
 
     test "can tokenize a raw string with multiple #" do
-      assert {:ok, tokens} = tokenize("r###\"\"###")
+      assert {:ok, tokens, ""} = tokenize("r###\"\"###")
 
       assert [
         {:raw_string, ""}
@@ -21,7 +21,7 @@ defmodule Kuddle.TokenizerTest do
     end
 
     test "can tokenize a multiline raw string" do
-      assert {:ok, tokens} = tokenize(
+      assert {:ok, tokens, ""} = tokenize(
         """
         r"
         \\n
@@ -35,7 +35,7 @@ defmodule Kuddle.TokenizerTest do
     end
 
     test "correctly tokenizes nested children" do
-      assert {:ok, tokens} = tokenize(
+      assert {:ok, tokens, ""} = tokenize(
         """
         node1 {
           node2 {

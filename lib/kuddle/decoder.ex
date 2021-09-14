@@ -1,11 +1,21 @@
 defmodule Kuddle.Decoder do
   alias Kuddle.Value
+  alias Kuddle.Node
 
   import Kuddle.Tokenizer
 
+  @type tokens :: Kuddle.Tokenizer.tokens()
+
+  @type document_node :: Node.t()
+
+  @type document :: [document_node()]
+
+  @spec decode(String.t()) ::
+          {:ok, document(), tokens()}
+          | {:error, term()}
   def decode(blob) when is_binary(blob) do
     case tokenize(blob) do
-      {:ok, tokens} ->
+      {:ok, tokens, ""} ->
         parse(tokens)
 
       {:error, _} = err ->
@@ -14,100 +24,129 @@ defmodule Kuddle.Decoder do
   end
 
   defp parse(tokens) do
-    do_parse(tokens, {:default, 0}, nil, [])
+    do_parse(tokens, {:default, 0}, [], [])
   end
 
-  defp do_parse([], {:default, 0}, nil, doc) do
+  defp do_parse([], {:default, 0}, [], doc) do
     handle_parse_exit([], doc)
   end
 
-  defp do_parse([{:slashdash, _} | tokens], {:default, _} = state, nil, doc) do
+  defp do_parse([{:annotation, _value} = annotation | tokens], {:default, _} = state, acc, doc) do
+    do_parse(tokens, state, [annotation | acc], doc)
+  end
+
+  defp do_parse([{:slashdash, _} | tokens], {:default, _} = state, acc, doc) do
     # add the slashdash to the document accumulator
     # when the next parse is done, the slashdash will cause the next item in the accumulator to
     # be dropped
-    do_parse(tokens, state, nil, [:slashdash | doc])
+    do_parse(tokens, state, acc, [:slashdash | doc])
   end
 
-  defp do_parse([{:comment, _} | tokens], {:default, _} = state, nil, doc) do
-    do_parse(tokens, state, nil, doc)
+  defp do_parse([{:comment, _} | tokens], {:default, _} = state, acc, doc) do
+    do_parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:fold, _} | tokens], {:default, _} = state, nil, doc) do
-    do_parse(fold_leading_tokens(tokens), state, nil, doc)
-  end
-
-  defp do_parse([{:sc, _} | tokens], {:default, _} = state, nil, doc) do
-    # loose semi-colon
-    do_parse(tokens, state, nil, doc)
-  end
-
-  defp do_parse([{:nl, _} | tokens], {:default, _} = state, nil, doc) do
-    # trim leading newlines
-    do_parse(tokens, state, nil, doc)
-  end
-
-  defp do_parse([{:space, _} | tokens], {:default, _} = state, nil, doc) do
-    # trim leading space
-    do_parse(tokens, state, nil, doc)
-  end
-
-  defp do_parse([{:term, name} | tokens], {:default, depth}, nil, doc) do
-    # node
-    do_parse(tokens, {:node, depth}, {name, []}, doc)
-  end
-
-  defp do_parse([{:dquote_string, name} | tokens], {:default, depth}, nil, doc) do
-    # double quote initiated node
-    do_parse(tokens, {:node, depth}, {name, []}, doc)
-  end
-
-  defp do_parse([{:raw_string, name} | tokens], {:default, depth}, nil, doc) do
-    # raw string node
-    do_parse(tokens, {:node, depth}, {name, []}, doc)
-  end
-
-  defp do_parse([{:slashdash, _} | tokens], {:node, _} = state, {name, acc}, doc) do
-    do_parse(tokens, state, {name, [:slashdash | acc]}, doc)
-  end
-
-  defp do_parse([{:comment, _} | tokens], {:node, _} = state, {name, acc}, doc) do
-    # trim comments
-    do_parse(tokens, state, {name, acc}, doc)
-  end
-
-  defp do_parse([{:space, _} | tokens], {:node, _} = state, {name, acc}, doc) do
-    # trim leading spaces in node
-    do_parse(tokens, state, {name, acc}, doc)
-  end
-
-  defp do_parse([{:fold, _} | tokens], {:node, _} = state, {_name, _acc} = acc, doc) do
+  defp do_parse([{:fold, _} | tokens], {:default, _} = state, acc, doc) do
     do_parse(fold_leading_tokens(tokens), state, acc, doc)
   end
 
-  defp do_parse([{:nl, _} | tokens], {:node, depth}, {name, acc}, doc) do
-    do_parse(tokens, {:default, depth}, nil, [{:node, name, resolve_node_values(acc), nil} | doc])
+  defp do_parse([{:sc, _} | tokens], {:default, _} = state, acc, doc) do
+    # loose semi-colon
+    do_parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:sc, _} | tokens], {:node, depth}, {name, acc}, doc) do
-    do_parse(tokens, {:default, depth}, nil, [{:node, name, resolve_node_values(acc), nil} | doc])
+  defp do_parse([{:nl, _} | tokens], {:default, _} = state, acc, doc) do
+    # trim leading newlines
+    do_parse(tokens, state, acc, doc)
   end
 
-  defp do_parse([{:open_block, _} | tokens], {:node, depth}, {name, acc}, doc) do
-    case do_parse(tokens, {:default, depth + 1}, nil, []) do
+  defp do_parse([{:space, _} | tokens], {:default, _} = state, acc, doc) do
+    # trim leading space
+    do_parse(tokens, state, acc, doc)
+  end
+
+  defp do_parse([{:term, name} | tokens], {:default, depth}, acc, doc) do
+    # node
+    annotations = extract_annotations(acc)
+    do_parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+  end
+
+  defp do_parse([{:dquote_string, name} | tokens], {:default, depth}, acc, doc) do
+    # double quote initiated node
+    annotations = extract_annotations(acc)
+    do_parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+  end
+
+  defp do_parse([{:raw_string, name} | tokens], {:default, depth}, acc, doc) do
+    # raw string node
+    annotations = extract_annotations(acc)
+    do_parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+  end
+
+  defp do_parse([{:slashdash, _} | tokens], {:node, _} = state, {name, annotations, attrs}, doc) do
+    do_parse(tokens, state, {name, annotations, [:slashdash | attrs]}, doc)
+  end
+
+  defp do_parse([{:comment, _} | tokens], {:node, _} = state, acc, doc) do
+    # trim comments
+    do_parse(tokens, state, acc, doc)
+  end
+
+  defp do_parse([{:space, _} | tokens], {:node, _} = state, acc, doc) do
+    # trim leading spaces in node
+    do_parse(tokens, state, acc, doc)
+  end
+
+  defp do_parse([{:fold, _} | tokens], {:node, _} = state, acc, doc) do
+    do_parse(fold_leading_tokens(tokens), state, acc, doc)
+  end
+
+  defp do_parse([{:nl, _} | tokens], {:node, depth}, {name, annotations, attrs}, doc) do
+    node = %Node{
+      name: name,
+      annotations: annotations,
+      attributes: resolve_node_attributes(attrs),
+      children: nil,
+    }
+    do_parse(tokens, {:default, depth}, [], [node | doc])
+  end
+
+  defp do_parse([{:sc, _} | tokens], {:node, depth}, {name, annotations, attrs}, doc) do
+    node = %Node{
+      name: name,
+      annotations: annotations,
+      attributes: resolve_node_attributes(attrs),
+      children: nil,
+    }
+    do_parse(tokens, {:default, depth}, [], [node | doc])
+  end
+
+  defp do_parse([{:open_block, _} | tokens], {:node, depth}, {name, annotations, attrs}, doc) do
+    case do_parse(tokens, {:default, depth + 1}, [], []) do
       {:ok, children, tokens} ->
         case trim_leading_space(tokens) do
           [{:close_block, _} | tokens] ->
             node =
-              case acc do
-                [:slashdash | acc] ->
+              case attrs do
+                [:slashdash | attrs] ->
                   # discard the children
-                  {:node, name, resolve_node_values(acc), nil}
+                  %Node{
+                    name: name,
+                    annotations: annotations,
+                    attributes: resolve_node_attributes(attrs),
+                    children: nil,
+                  }
 
-                acc ->
-                  {:node, name, resolve_node_values(acc), children}
+                attrs ->
+                  %Node{
+                    name: name,
+                    annotations: annotations,
+                    attributes: resolve_node_attributes(attrs),
+                    children: children,
+                  }
               end
 
-            do_parse(tokens, {:default, depth}, nil, [node | doc])
+            do_parse(tokens, {:default, depth}, [], [node | doc])
         end
 
       {:error, _} = err ->
@@ -115,7 +154,7 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp do_parse([token | tokens], {:node, _} = state, {name, acc}, doc) do
+  defp do_parse([token | tokens], {:node, _} = state, {name, annotations, attrs}, doc) do
     case token_to_value(token) do
       {:ok, key} ->
         case trim_leading_space(tokens) do
@@ -123,12 +162,12 @@ defmodule Kuddle.Decoder do
             [token | tokens] = trim_leading_space(tokens)
             case token_to_value(token) do
               {:ok, value} ->
-                do_parse(tokens, state, {name, [{key, value} | acc]}, doc)
+                do_parse(tokens, state, {name, annotations, [{key, value} | attrs]}, doc)
 
             end
 
           tokens ->
-            do_parse(tokens, state, {name, [key | acc]}, doc)
+            do_parse(tokens, state, {name, annotations, [key | attrs]}, doc)
         end
 
       {:error, _} = err ->
@@ -136,12 +175,32 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp do_parse([], {:node, depth}, {name, acc}, doc) do
-    do_parse([], {:default, depth}, nil, [{:node, name, resolve_node_values(acc), nil} | doc])
+  defp do_parse([], {:node, depth}, {name, annotations, attrs}, doc) do
+    node = %Node{
+      name: name,
+      annotations: annotations,
+      attributes: resolve_node_attributes(attrs),
+      children: nil,
+    }
+    do_parse([], {:default, depth}, [], [node | doc])
   end
 
-  defp do_parse([{:close_block, _} | _tokens] = tokens, {:default, _depth}, nil, doc) do
+  defp do_parse([{:close_block, _} | _tokens] = tokens, {:default, _depth}, [], doc) do
     handle_parse_exit(tokens, doc)
+  end
+
+  defp extract_annotations(items, acc \\ [])
+
+  defp extract_annotations([], acc) do
+    Enum.reverse(acc)
+  end
+
+  defp extract_annotations([{:annotation, value} | rest], acc) do
+    extract_annotations(rest, [value | acc])
+  end
+
+  defp extract_annotations([_ | rest], acc) do
+    extract_annotations(rest, acc)
   end
 
   defp handle_parse_exit(rest, doc) do
@@ -150,7 +209,7 @@ defmodule Kuddle.Decoder do
     {:ok, handle_slashdashes(doc, []), rest}
   end
 
-  defp resolve_node_values(acc) do
+  defp resolve_node_attributes(acc) do
     handle_slashdashes(Enum.reverse(acc), [])
   end
 
@@ -337,12 +396,12 @@ defmodule Kuddle.Decoder do
   defp decode_float(value) do
     case decode_float_string(value, :start, []) do
       {:ok, value} ->
-        case Float.parse(value) do
-          {flt, ""} ->
-            {:ok, %Value{value: flt, type: :float}}
+        case Decimal.parse(value) do
+          {:ok, %Decimal{} = decimal} ->
+            {:ok, %Value{value: decimal, type: :float}}
 
-          {_flt, _} ->
-            {:error, :invalid_float_format}
+          {%Decimal{} = decimal, ""} ->
+            {:ok, %Value{value: decimal, type: :float}}
 
           :error ->
             {:error, :invalid_float_format}

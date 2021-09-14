@@ -1,6 +1,10 @@
 defmodule Kuddle.Encoder do
   alias Kuddle.Value
+  alias Kuddle.Node
 
+  @spec encode(Kuddle.Decoder.document()) ::
+          {:ok, String.t()}
+          | {:error, term()}
   def encode([]) do
     {:ok, "\n"}
   end
@@ -16,35 +20,35 @@ defmodule Kuddle.Encoder do
     {:ok, Enum.reverse(rows)}
   end
 
-  defp do_encode([{:node, name, values, nil} | rest], rows) do
+  defp do_encode([%Node{name: name, attributes: attrs, children: nil} | rest], rows) do
     node_name = encode_node_name(name)
 
     result = [node_name]
 
     result =
-      case encode_node_values(values, []) do
+      case encode_node_attributes(attrs, []) do
         [] ->
           result
 
-        node_values ->
-          [result, " ", Enum.intersperse(node_values, " ")]
+        node_attrs ->
+          [result, " ", Enum.intersperse(node_attrs, " ")]
       end
 
     do_encode(rest, [[result, "\n"] | rows])
   end
 
-  defp do_encode([{:node, name, values, children} | rest], rows) do
+  defp do_encode([%Node{name: name, attributes: attrs, children: children} | rest], rows) do
     node_name = encode_node_name(name)
 
     result = [node_name]
 
     result =
-      case encode_node_values(values, []) do
+      case encode_node_attributes(attrs, []) do
         [] ->
           result
 
-        node_values ->
-          [result, " ", Enum.intersperse(node_values, " ")]
+        node_attrs ->
+          [result, " ", Enum.intersperse(node_attrs, " ")]
       end
 
     result = [result, " {\n"]
@@ -69,16 +73,16 @@ defmodule Kuddle.Encoder do
     do_encode(rest, [result | rows])
   end
 
-  defp encode_node_values([%Value{} = value | rest], acc) do
-    encode_node_values(rest, [encode_value(value) | acc])
+  defp encode_node_attributes([%Value{} = value | rest], acc) do
+    encode_node_attributes(rest, [encode_value(value) | acc])
   end
 
-  defp encode_node_values([{%Value{} = key, %Value{} = value} | rest], acc) do
+  defp encode_node_attributes([{%Value{} = key, %Value{} = value} | rest], acc) do
     result = [encode_value(key), "=", encode_value(value)]
-    encode_node_values(rest, [result | acc])
+    encode_node_attributes(rest, [result | acc])
   end
 
-  defp encode_node_values([], acc) do
+  defp encode_node_attributes([], acc) do
     Enum.reverse(acc)
   end
 
@@ -112,6 +116,10 @@ defmodule Kuddle.Encoder do
 
   defp encode_value(%Value{type: :float, value: value}) when is_float(value) do
     String.upcase(Float.to_string(value))
+  end
+
+  defp encode_value(%Value{type: :float, value: %Decimal{} = value}) do
+    String.upcase(Decimal.to_string(value, :scientific))
   end
 
   defp encode_value(%Value{type: :id, value: value}) when is_binary(value) do

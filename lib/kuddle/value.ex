@@ -1,6 +1,7 @@
 defmodule Kuddle.Value do
   defstruct [
     value: nil,
+    annotations: [],
     type: :id,
     format: :plain,
   ]
@@ -19,6 +20,7 @@ defmodule Kuddle.Value do
 
   @type t :: %__MODULE__{
     value: any(),
+    annotations: [String.t()],
     type: value_type(),
     format: format(),
   }

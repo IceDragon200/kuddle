@@ -1,10 +1,70 @@
 defmodule Kuddle.Tokenizer do
+  @moduledoc """
+  Intermediate process of converting a KDL document into some basic tokens that can be parsed.
+  """
+  @type open_block_token :: {:open_block, unused::integer()}
+
+  @type close_block_token :: {:close_block, unused::integer()}
+
+  @type slashdash_token :: {:slashdash, unused::integer()}
+
+  @type comment_type :: :c | :c_multiline
+
+  @type comment_token :: {:comment, {comment_type(), String.t()}}
+
+  @type dquote_string_token :: {:dquote_string, String.t()}
+
+  @type raw_string_token :: {:raw_string, String.t()}
+
+  @type space_token :: {:space, {String.t(), len::non_neg_integer()}}
+
+  @type newline_token :: {:nl, unused::integer()}
+
+  @type carriage_return_newline_token :: {:crnl, unused::integer()}
+
+  @type equal_token :: {:=, unused::integer()}
+
+  @type semicolon_token :: {:sc, unused::integer()}
+
+  @type fold_token :: {:fold, unused::integer()}
+
+  @type term_token :: {:term, String.t()}
+
+  @type token :: open_block_token()
+               | close_block_token()
+               | slashdash_token()
+               | comment_token()
+               | dquote_string_token()
+               | raw_string_token()
+               | space_token()
+               | newline_token()
+               | carriage_return_newline_token()
+               | equal_token()
+               | semicolon_token()
+               | fold_token()
+               | term_token()
+
+  @type tokens :: [token()]
+
+  @spec tokenize(String.t()) ::
+          {:ok, tokens(), rest::String.t()}
+          | {:error, term()}
   def tokenize(blob) when is_binary(blob) do
     do_tokenize(blob, :default, nil, [])
   end
 
   defp do_tokenize(<<>>, :default, nil, doc) do
-    {:ok, Enum.reverse(doc)}
+    {:ok, Enum.reverse(doc), ""}
+  end
+
+  defp do_tokenize(<<"(", rest::binary>>, :default, nil, doc) do
+    case String.split(rest, ")", parts: 2) do
+      [annotation, rest] ->
+        do_tokenize(rest, :default, nil, [{:annotation, annotation} | doc])
+
+      [_annotation] ->
+        {:error, :unexpected_annotation}
+    end
   end
 
   defp do_tokenize(<<"{", rest::binary>>, :default, nil, doc) do
