@@ -41,7 +41,15 @@ defmodule Kuddle.Tokenizer do
   end
 
   defp do_tokenize(<<"//", rest::binary>>, :default, nil, doc) do
-    [comment, rest] = String.split(rest, "\n", parts: 2)
+    {comment, rest} =
+      case String.split(rest, "\n", parts: 2) do
+        [comment, rest] ->
+          {comment, rest}
+
+        [comment] ->
+          {comment, ""}
+      end
+
     do_tokenize(rest, :default, nil, [{:comment, {:c, comment}} | doc])
   end
 
