@@ -38,6 +38,10 @@ nodes = Kuddle.select(kdl_doc, [{:attr, "attribute name", "attribute value"}])
 nodes = Kuddle.select(kdl_doc, [{:value, "value"}])
 ```
 
+Want to use KDL to configure your elixir next project?
+
+Check out [kuddle_config](https://github.com/IceDragon200/kuddle_config)
+
 ## Test Cases
 
 `test/fixtures/test_cases` contains a copy of the official language tests
