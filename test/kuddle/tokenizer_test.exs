@@ -3,7 +3,7 @@ defmodule Kuddle.TokenizerTest do
 
   import Kuddle.Tokenizer
 
-  describe "tokenize/1" do
+  describe "tokenize/1 (good form)" do
     test "can tokenize an empty raw string" do
       assert {:ok, tokens, ""} = tokenize("r\"\"")
 
@@ -64,6 +64,16 @@ defmodule Kuddle.TokenizerTest do
         {:close_block, 0},
         {:nl, 1}
       ] = tokens
+    end
+  end
+
+  describe "tokenize/1 (malformed)" do
+    test "correctly aborts on unclosed strings" do
+      assert {:error, _} = tokenize(
+        """
+        "abc
+        """
+      )
     end
   end
 end

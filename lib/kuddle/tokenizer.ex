@@ -167,6 +167,10 @@ defmodule Kuddle.Tokenizer do
     do_tokenize(rest, :dquote_string, [<<c::utf8>> | acc], doc)
   end
 
+  defp do_tokenize(<<>>, :dquote_string, acc, _doc) do
+    {:error, {:unterminated_dquote_string, Enum.reverse(acc)}}
+  end
+
   # raw string
   defp do_tokenize(<<"r\"", rest::binary>>, :default, nil, doc) do
     do_tokenize(rest, {:raw_string, "\""}, [], doc)

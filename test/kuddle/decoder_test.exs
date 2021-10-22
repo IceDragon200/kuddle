@@ -32,7 +32,7 @@ defmodule Kuddle.DecoderTest do
       ], []} = Decoder.decode("(frying_pan)node \"bacon\"")
     end
 
-    test "can decode an attribute annotation" do
+    test "can decode an argument annotation" do
       assert {:ok, [
         %Node{
           name: "node",
@@ -137,6 +137,63 @@ defmodule Kuddle.DecoderTest do
           }
         ]
       } = node
+    end
+
+    test "correctly slashdashes node" do
+      assert {:ok, [
+        %Node{
+          name: "showme",
+          annotations: [],
+          attributes: [
+          ],
+          children: [
+            %Node{
+              name: "visible",
+              annotations: [],
+              attributes: [],
+              children: nil,
+            }
+          ]
+        }
+      ], []} = Decoder.decode("""
+      /- hideme {
+        hidden
+      }
+      showme {
+        visible
+      }
+      """)
+    end
+
+    test "can handle folded arguments" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: [],
+          attributes: [
+            %{
+              type: :string,
+              annotations: [],
+              value: "arg1"
+            },
+            %{
+              type: :string,
+              annotations: [],
+              value: "arg2"
+            },
+            %{
+              type: :string,
+              annotations: [],
+              value: "arg3"
+            }
+          ],
+          children: nil
+        }
+      ], []} = Decoder.decode("""
+      node "arg1" \\
+           "arg2" \\
+           "arg3"
+      """)
     end
   end
 end
