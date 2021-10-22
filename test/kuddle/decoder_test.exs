@@ -195,5 +195,59 @@ defmodule Kuddle.DecoderTest do
            "arg3"
       """)
     end
+
+    test "can handle folded properties" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: [],
+          attributes: [
+            {
+              %{
+                type: :id,
+                annotations: [],
+                value: "prop1"
+              },
+              %{
+                type: :integer,
+                annotations: [],
+                value: 1
+              },
+            },
+            {
+              %{
+                type: :id,
+                annotations: [],
+                value: "prop2"
+              },
+              %{
+                type: :integer,
+                annotations: [],
+                value: 2
+              },
+            },
+            {
+              %{
+                type: :id,
+                annotations: [],
+                value: "prop3"
+              },
+              %{
+                type: :integer,
+                annotations: [],
+                value: 3
+              },
+            }
+          ],
+          children: nil
+        }
+      ], []} = Decoder.decode("""
+      node prop1=1 \\
+           prop2 \\
+           = 2 \\
+           prop3 = \\
+            3
+      """)
+    end
   end
 end

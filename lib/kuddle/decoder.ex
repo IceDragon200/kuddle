@@ -67,7 +67,7 @@ defmodule Kuddle.Decoder do
   end
 
   defp parse([{:fold, _} | tokens], {:default, _} = state, acc, doc) do
-    parse(fold_leading_tokens(tokens), state, acc, doc)
+    parse(unfold_leading_tokens(tokens), state, acc, doc)
   end
 
   defp parse([{:sc, _} | tokens], {:default, _} = state, acc, doc) do
@@ -118,7 +118,7 @@ defmodule Kuddle.Decoder do
   end
 
   defp parse([{:fold, _} | tokens], {:node, _} = state, acc, doc) do
-    parse(fold_leading_tokens(tokens), state, acc, doc)
+    parse(unfold_leading_tokens(tokens), state, acc, doc)
   end
 
   defp parse([{token_type, _} | tokens], {:node, depth}, {name, node_annotations, attrs}, doc) when token_type in [:nl, :sc] do
@@ -275,23 +275,43 @@ defmodule Kuddle.Decoder do
     |> Enum.reverse()
   end
 
-  defp fold_leading_tokens([{:space, _} | tokens]) do
-    fold_leading_tokens(tokens)
+  defp unfold_leading_tokens(tokens, remaining \\ 1)
+
+  defp unfold_leading_tokens([{:space, _} | tokens], remaining) do
+    unfold_leading_tokens(tokens, remaining)
   end
 
-  defp fold_leading_tokens([{:nl, _} | tokens]) do
-    fold_leading_tokens(tokens)
+  defp unfold_leading_tokens([{:nl, _} | tokens], remaining) when remaining > 0 do
+    unfold_leading_tokens(tokens, remaining - 1)
   end
 
-  defp fold_leading_tokens(tokens) do
+  defp unfold_leading_tokens([{:comment, _} | tokens], remaining) when remaining > 0 do
+    unfold_leading_tokens(tokens, remaining - 1)
+  end
+
+  defp unfold_leading_tokens(tokens, 0) do
     tokens
   end
 
-  defp trim_leading_space([{:space, _} | tokens]) do
-    trim_leading_space(tokens)
+  defp trim_leading_space(tokens, remaining \\ 0)
+
+  defp trim_leading_space([{:space, _} | tokens], remaining) do
+    trim_leading_space(tokens, remaining)
   end
 
-  defp trim_leading_space(tokens) do
+  defp trim_leading_space([{:nl, _} | tokens], remaining) when remaining > 0 do
+    trim_leading_space(tokens, remaining - 1)
+  end
+
+  defp trim_leading_space([{:comment, _} | tokens], remaining) when remaining > 0 do
+    trim_leading_space(tokens, remaining - 1)
+  end
+
+  defp trim_leading_space([{:fold, _} | tokens], remaining) do
+    trim_leading_space(tokens, remaining + 1)
+  end
+
+  defp trim_leading_space(tokens, 0) do
     tokens
   end
 
