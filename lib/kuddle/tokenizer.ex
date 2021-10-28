@@ -339,7 +339,9 @@ defmodule Kuddle.Tokenizer do
 
   @non_identifier_characters [?=, ?\n, ?\r, ?\s, ?\\, ?<, ?>, ?{, ?}, ?;, ?[, ?], ?(, ?), ?=, ?,, ?"]
 
-  defp do_tokenize(<<c::utf8, _rest::binary>> = rest, :default, nil, doc) when c in @non_identifier_characters do
+  defp do_tokenize(<<c::utf8, _rest::binary>> = rest, :default, nil, doc)
+          when c in @non_identifier_characters or
+               c >= 0x10FFFF do
     {:ok, Enum.reverse(doc), rest}
   end
 

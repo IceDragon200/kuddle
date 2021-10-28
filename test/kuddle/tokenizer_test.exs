@@ -4,6 +4,11 @@ defmodule Kuddle.TokenizerTest do
   import Kuddle.Tokenizer
 
   describe "tokenize/1 (good form)" do
+    test "cannot tokenize out of range utf-8 value" do
+      assert {:ok, [{:term, "n"}], "\u{10FFFF}"} = tokenize("n\u{10FFFF}")
+      assert {:ok, tokens, ""} = tokenize("n\u{10FFFE}")
+    end
+
     test "can tokenize an empty raw string" do
       assert {:ok, tokens, ""} = tokenize("r\"\"")
 
