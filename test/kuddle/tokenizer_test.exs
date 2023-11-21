@@ -5,15 +5,15 @@ defmodule Kuddle.TokenizerTest do
 
   describe "tokenize/1 (good form)" do
     test "cannot tokenize out of range utf-8 value" do
-      assert {:ok, [{:term, "n"}], "\u{10FFFF}"} = tokenize("n\u{10FFFF}")
-      assert {:ok, tokens, ""} = tokenize("n\u{10FFFE}")
+      assert {:ok, [{:term, "n", _}], "\u{10FFFF}"} = tokenize("n\u{10FFFF}")
+      assert {:ok, [{:term, "n\u{10FFFE}", _}], ""} = tokenize("n\u{10FFFE}")
     end
 
     test "can tokenize an empty raw string" do
       assert {:ok, tokens, ""} = tokenize("r\"\"")
 
       assert [
-        {:raw_string, ""}
+        {:raw_string, "", _}
       ] = tokens
     end
 
@@ -21,7 +21,7 @@ defmodule Kuddle.TokenizerTest do
       assert {:ok, tokens, ""} = tokenize("r###\"\"###")
 
       assert [
-        {:raw_string, ""}
+        {:raw_string, "", _}
       ] = tokens
     end
 
@@ -34,8 +34,8 @@ defmodule Kuddle.TokenizerTest do
         """
       )
       assert [
-        {:raw_string, "\n\\n\n"},
-        {:nl, 1}
+        {:raw_string, "\n\\n\n", _},
+        {:nl, 1, _}
       ] = tokens
     end
 
@@ -51,23 +51,23 @@ defmodule Kuddle.TokenizerTest do
       )
 
       assert [
-        {:term, "node1"},
-        {:space, 1},
-        {:open_block, 0},
-        {:nl, 1},
-        {:space, 2},
-        {:term, "node2"},
-        {:space, 1},
-        {:open_block, 0},
-        {:nl, 1},
-        {:space, 4},
-        {:term, "node"},
-        {:nl, 1},
-        {:space, 2},
-        {:close_block, 0},
-        {:nl, 1},
-        {:close_block, 0},
-        {:nl, 1}
+        {:term, "node1", {_, 1, 1}},
+        {:space, 1, {_, 1, 6}},
+        {:open_block, 0, {_, 1, 7}},
+        {:nl, 1, {_, 1, 8}},
+        {:space, 2, {_, 2, 1}},
+        {:term, "node2", {_, 2, 3}},
+        {:space, 1, {_, 2, 8}},
+        {:open_block, 0, {_, 2, 9}},
+        {:nl, 1, {_, 2, 10}},
+        {:space, 4, {_, 3, 1}},
+        {:term, "node", {_, 3, 5}},
+        {:nl, 1, {_, 3, 9}},
+        {:space, 2, {_, 4, 1}},
+        {:close_block, 0, {_, 4, 3}},
+        {:nl, 1, {_, 4, 4}},
+        {:close_block, 0, {_, 5, 1}},
+        {:nl, 1, {_, 5, 2}}
       ] = tokens
     end
   end

@@ -6,6 +6,7 @@ defmodule Kuddle.Decoder do
   alias Kuddle.Node
 
   import Kuddle.Tokenizer
+  import Kuddle.Tokens
   import Kuddle.Utils
 
   @typedoc """
@@ -51,77 +52,82 @@ defmodule Kuddle.Decoder do
     handle_parse_exit([], doc)
   end
 
-  defp parse([{:annotation, _value} = annotation | tokens], {:default, _} = state, acc, doc) do
+  defp parse([r_annotation_token() = annotation | tokens], {:default, _} = state, acc, doc) do
     parse(tokens, state, [annotation | acc], doc)
   end
 
-  defp parse([{:slashdash, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([r_slashdash_token() | tokens], {:default, _} = state, acc, doc) do
     # add the slashdash to the document accumulator
     # when the next parse is done, the slashdash will cause the next item in the accumulator to
     # be dropped
     parse(tokens, state, acc, [:slashdash | doc])
   end
 
-  defp parse([{:comment, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([r_comment_token() | tokens], {:default, _} = state, acc, doc) do
     parse(tokens, state, acc, doc)
   end
 
-  defp parse([{:fold, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([r_fold_token() | tokens], {:default, _} = state, acc, doc) do
     parse(unfold_leading_tokens(tokens), state, acc, doc)
   end
 
-  defp parse([{:sc, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([r_semicolon_token() | tokens], {:default, _} = state, acc, doc) do
     # loose semi-colon
     parse(tokens, state, acc, doc)
   end
 
-  defp parse([{:nl, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([r_newline_token() | tokens], {:default, _} = state, acc, doc) do
     # trim leading newlines
     parse(tokens, state, acc, doc)
   end
 
-  defp parse([{:space, _} | tokens], {:default, _} = state, acc, doc) do
+  defp parse([r_space_token() | tokens], {:default, _} = state, acc, doc) do
     # trim leading space
     parse(tokens, state, acc, doc)
   end
 
-  defp parse([{:term, name} | tokens], {:default, depth}, acc, doc) do
+  defp parse([r_term_token(value: name) | tokens], {:default, depth}, acc, doc) do
     # node
     annotations = extract_annotations(acc)
     parse(tokens, {:node, depth}, {name, annotations, []}, doc)
   end
 
-  defp parse([{:dquote_string, name} | tokens], {:default, depth}, acc, doc) do
+  defp parse([r_dquote_string_token(value: name) | tokens], {:default, depth}, acc, doc) do
     # double quote initiated node
     annotations = extract_annotations(acc)
     parse(tokens, {:node, depth}, {name, annotations, []}, doc)
   end
 
-  defp parse([{:raw_string, name} | tokens], {:default, depth}, acc, doc) do
+  defp parse([r_raw_string_token(value: name) | tokens], {:default, depth}, acc, doc) do
     # raw string node
     annotations = extract_annotations(acc)
     parse(tokens, {:node, depth}, {name, annotations, []}, doc)
   end
 
-  defp parse([{:slashdash, _} | tokens], {:node, _} = state, {name, annotations, attrs}, doc) do
+  defp parse([r_slashdash_token() | tokens], {:node, _} = state, {name, annotations, attrs}, doc) do
     parse(tokens, state, {name, annotations, [:slashdash | attrs]}, doc)
   end
 
-  defp parse([{:comment, _} | tokens], {:node, _} = state, acc, doc) do
+  defp parse([r_comment_token() | tokens], {:node, _} = state, acc, doc) do
     # trim comments
     parse(tokens, state, acc, doc)
   end
 
-  defp parse([{:space, _} | tokens], {:node, _} = state, acc, doc) do
+  defp parse([r_space_token() | tokens], {:node, _} = state, acc, doc) do
     # trim leading spaces in node
     parse(tokens, state, acc, doc)
   end
 
-  defp parse([{:fold, _} | tokens], {:node, _} = state, acc, doc) do
+  defp parse([r_fold_token() | tokens], {:node, _} = state, acc, doc) do
     parse(unfold_leading_tokens(tokens), state, acc, doc)
   end
 
-  defp parse([{token_type, _} | tokens], {:node, depth}, {name, node_annotations, attrs}, doc) when token_type in [:nl, :sc] do
+  defp parse(
+    [{token_type, _value, _meta} | tokens],
+    {:node, depth},
+    {name, node_annotations, attrs},
+    doc
+  ) when token_type in [:nl, :sc] do
     node = %Node{
       name: name,
       annotations: node_annotations,
@@ -131,11 +137,11 @@ defmodule Kuddle.Decoder do
     parse(tokens, {:default, depth}, [], [node | doc])
   end
 
-  defp parse([{:open_block, _} | tokens], {:node, depth}, {name, node_annotations, attrs}, doc) do
+  defp parse([r_open_block_token() | tokens], {:node, depth}, {name, node_annotations, attrs}, doc) do
     case parse(tokens, {:default, depth + 1}, [], []) do
       {:ok, children, tokens} ->
         case trim_leading_space(tokens) do
-          [{:close_block, _} | tokens] ->
+          [r_close_block_token() | tokens] ->
             node =
               case attrs do
                 [:slashdash | attrs] ->
@@ -164,7 +170,7 @@ defmodule Kuddle.Decoder do
     end
   end
 
-  defp parse([{:annotation, _} = annotation | tokens], {:node, _} = state, {name, node_annotations, attrs}, doc) do
+  defp parse([r_annotation_token() = annotation | tokens], {:node, _} = state, {name, node_annotations, attrs}, doc) do
     attrs = [annotation | attrs]
     parse(tokens, state, {name, node_annotations, attrs}, doc)
   end
@@ -174,7 +180,7 @@ defmodule Kuddle.Decoder do
       {:ok, %Value{} = key} ->
         {key_annotations, attrs} =
           case attrs do
-            [{:annotation, annotation} | attrs] ->
+            [r_annotation_token(value: annotation) | attrs] ->
               {[annotation], attrs}
 
             attrs ->
@@ -184,11 +190,11 @@ defmodule Kuddle.Decoder do
         key = %{key | annotations: key.annotations ++ key_annotations}
 
         case trim_leading_space(tokens) do
-          [{:=, _} | tokens] ->
+          [r_equal_token() | tokens] ->
             tokens = trim_leading_space(tokens)
             {value_annotations, tokens} =
               case tokens do
-                [{:annotation, annotation} | tokens] ->
+                [r_annotation_token(value: annotation) | tokens] ->
                   {[annotation], tokens}
 
                 tokens ->
@@ -230,7 +236,7 @@ defmodule Kuddle.Decoder do
     parse([], {:default, depth}, [], [node | doc])
   end
 
-  defp parse([{:close_block, _} | _tokens] = tokens, {:default, _depth}, [], doc) do
+  defp parse([r_close_block_token() | _tokens] = tokens, {:default, _depth}, [], doc) do
     handle_parse_exit(tokens, doc)
   end
 
@@ -240,7 +246,7 @@ defmodule Kuddle.Decoder do
     Enum.reverse(acc)
   end
 
-  defp extract_annotations([{:annotation, value} | rest], acc) do
+  defp extract_annotations([r_annotation_token(value: value) | rest], acc) do
     extract_annotations(rest, [value | acc])
   end
 
@@ -277,15 +283,15 @@ defmodule Kuddle.Decoder do
 
   defp unfold_leading_tokens(tokens, remaining \\ 1)
 
-  defp unfold_leading_tokens([{:space, _} | tokens], remaining) do
+  defp unfold_leading_tokens([r_space_token() | tokens], remaining) do
     unfold_leading_tokens(tokens, remaining)
   end
 
-  defp unfold_leading_tokens([{:nl, _} | tokens], remaining) when remaining > 0 do
+  defp unfold_leading_tokens([r_newline_token() | tokens], remaining) when remaining > 0 do
     unfold_leading_tokens(tokens, remaining - 1)
   end
 
-  defp unfold_leading_tokens([{:comment, _} | tokens], remaining) when remaining > 0 do
+  defp unfold_leading_tokens([r_comment_token() | tokens], remaining) when remaining > 0 do
     unfold_leading_tokens(tokens, remaining - 1)
   end
 
@@ -295,19 +301,19 @@ defmodule Kuddle.Decoder do
 
   defp trim_leading_space(tokens, remaining \\ 0)
 
-  defp trim_leading_space([{:space, _} | tokens], remaining) do
+  defp trim_leading_space([r_space_token() | tokens], remaining) do
     trim_leading_space(tokens, remaining)
   end
 
-  defp trim_leading_space([{:nl, _} | tokens], remaining) when remaining > 0 do
+  defp trim_leading_space([r_newline_token() | tokens], remaining) when remaining > 0 do
     trim_leading_space(tokens, remaining - 1)
   end
 
-  defp trim_leading_space([{:comment, _} | tokens], remaining) when remaining > 0 do
+  defp trim_leading_space([r_comment_token() | tokens], remaining) when remaining > 0 do
     trim_leading_space(tokens, remaining - 1)
   end
 
-  defp trim_leading_space([{:fold, _} | tokens], remaining) do
+  defp trim_leading_space([r_fold_token() | tokens], remaining) do
     trim_leading_space(tokens, remaining + 1)
   end
 
@@ -315,15 +321,15 @@ defmodule Kuddle.Decoder do
     tokens
   end
 
-  defp token_to_value({:term, value}) do
+  defp token_to_value(r_term_token(value: value)) do
     decode_term(value)
   end
 
-  defp token_to_value({:dquote_string, value}) do
+  defp token_to_value(r_dquote_string_token(value: value)) do
     {:ok, %Value{value: value, type: :string}}
   end
 
-  defp token_to_value({:raw_string, value}) do
+  defp token_to_value(r_raw_string_token(value: value)) do
     {:ok, %Value{value: value, type: :string}}
   end
 
@@ -355,7 +361,7 @@ defmodule Kuddle.Decoder do
     {:error, :no_term}
   end
 
-  defp decode_term(term) do
+  defp decode_term(term) when is_binary(term) do
     case decode_dec_integer(term) do
       {:ok, value} ->
         {:ok, value}
