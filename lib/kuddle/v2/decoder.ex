@@ -1,19 +1,19 @@
-defmodule Kuddle.Decoder do
+defmodule Kuddle.V2.Decoder do
   @moduledoc """
-  Tokenizes and parses KDL documents into kuddle documents.
+  Tokenizes and parses KDL2 documents into kuddle documents.
   """
   alias Kuddle.Value
   alias Kuddle.Node
 
-  import Kuddle.Tokenizer
+  import Kuddle.V1.Tokenizer
   import Kuddle.Tokens
-  import Kuddle.Utils
+  import Kuddle.V1.Utils
 
   @typedoc """
   Parsed tokens from the Tokenizer, these will be processed and converted into the final nodes for
   the document.
   """
-  @type tokens :: Kuddle.Tokenizer.tokens()
+  @type tokens :: Kuddle.V2.Tokenizer.tokens()
 
   @typedoc """
   A single node in the Kuddle document
@@ -32,8 +32,8 @@ defmodule Kuddle.Decoder do
   were parsed and tokens are any unparsed tokens.
   """
   @spec decode(String.t()) ::
-          {:ok, document(), tokens()}
-          | {:error, term()}
+    {:ok, document(), tokens()}
+    | {:error, term()}
   def decode(blob) when is_binary(blob) do
     case tokenize(blob) do
       {:ok, tokens, ""} ->

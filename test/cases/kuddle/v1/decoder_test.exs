@@ -1,7 +1,7 @@
-defmodule Kuddle.DecoderTest do
+defmodule Kuddle.V1.DecoderTest do
   use ExUnit.Case, async: true
 
-  alias Kuddle.Decoder
+  alias Kuddle.V1.Decoder
   alias Kuddle.Node
 
   describe "decode/1" do

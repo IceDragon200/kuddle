@@ -1,7 +1,7 @@
-defmodule Kuddle.TokenizerTest do
+defmodule Kuddle.V1.TokenizerTest do
   use ExUnit.Case, async: true
 
-  import Kuddle.Tokenizer
+  import Kuddle.V1.Tokenizer
 
   describe "tokenize/1 (good form)" do
     test "cannot tokenize out of range utf-8 value" do

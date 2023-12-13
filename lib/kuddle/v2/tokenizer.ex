@@ -1,49 +1,23 @@
-defmodule Kuddle.Tokenizer do
+defmodule Kuddle.V2.Tokenizer do
   @moduledoc """
-  Intermediate process of converting a KDL document into some basic tokens that can be parsed.
+  Intermediate process of converting a KDL1 document into some basic tokens that can be parsed.
   """
-  import Kuddle.Tokens
+  alias Kuddle.Tokens
 
-  @type token_meta :: {:token_meta, line_no::integer(), col_no::integer()}
+  import Tokens
 
-  @type open_block_token :: {:open_block, unused::integer(), token_meta()}
-
-  @type close_block_token :: {:close_block, unused::integer(), token_meta()}
-
-  @type slashdash_token :: {:slashdash, unused::integer(), token_meta()}
-
-  @type comment_type :: :c | :c_multiline
-
-  @type comment_token :: {:comment, {comment_type(), String.t()}, token_meta()}
-
-  @type dquote_string_token :: {:dquote_string, String.t(), token_meta()}
-
-  @type raw_string_token :: {:raw_string, String.t(), token_meta()}
-
-  @type space_token :: {:space, {String.t(), len::non_neg_integer()}, token_meta()}
-
-  @type newline_token :: {:nl, unused::integer(), token_meta()}
-
-  @type equal_token :: {:=, unused::integer(), token_meta()}
-
-  @type semicolon_token :: {:sc, unused::integer(), token_meta()}
-
-  @type fold_token :: {:fold, unused::integer(), token_meta()}
-
-  @type term_token :: {:term, String.t(), token_meta()}
-
-  @type token :: open_block_token()
-               | close_block_token()
-               | slashdash_token()
-               | comment_token()
-               | dquote_string_token()
-               | raw_string_token()
-               | space_token()
-               | newline_token()
-               | equal_token()
-               | semicolon_token()
-               | fold_token()
-               | term_token()
+  @type token :: Tokens.open_block_token()
+               | Tokens.close_block_token()
+               | Tokens.slashdash_token()
+               | Tokens.comment_token()
+               | Tokens.dquote_string_token()
+               | Tokens.raw_string_token()
+               | Tokens.space_token()
+               | Tokens.newline_token()
+               | Tokens.equal_token()
+               | Tokens.semicolon_token()
+               | Tokens.fold_token()
+               | Tokens.term_token()
 
   @type tokens :: [token()]
 

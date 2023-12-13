@@ -1,13 +1,7 @@
-defmodule Kuddle do
+defmodule Kuddle.V2 do
   @moduledoc """
-  Kuddle is a KDL (https://github.com/kdl-org/kdl) encoder and decoder.
-
-  It is compliant with both the 1.x and 2.x specifications, simply use the appropriately versioned
-  module for your needs.
-
-  And yes UTF-8 still works.
-
-  V2 is the default.
+  This is the V2 interface which handles KDL2 documents, if you need the older encoder and encoder,
+  see the V1 module instead.
   """
   @type document :: Kuddle.V2.Decoder.document()
 

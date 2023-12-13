@@ -6,7 +6,7 @@ defmodule Kuddle.MixProject do
       name: "Kuddle",
       app: :kuddle,
       description: description(),
-      version: "0.3.0",
+      version: "1.0.0",
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -24,7 +24,7 @@ defmodule Kuddle.MixProject do
 
   defp description do
     """
-    Kuddle is KDL Decoder, Encoder and utility library for Elixir.
+    Kuddle is a KDL Decoder, Encoder and utility library for Elixir.
     """
   end
 

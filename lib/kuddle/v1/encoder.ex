@@ -1,4 +1,4 @@
-defmodule Kuddle.Encoder do
+defmodule Kuddle.V1.Encoder do
   @moduledoc """
   Encodes a Kuddle document into a KDL blob
   """
@@ -6,11 +6,14 @@ defmodule Kuddle.Encoder do
   alias Kuddle.Node
 
   import Kuddle.Utils
+  import Kuddle.V1.Utils
+
+  @type document :: Kuddle.V1.Decoder.document()
 
   @doc """
   Encodes a kuddle document as a KDL string
   """
-  @spec encode(Kuddle.Decoder.document()) ::
+  @spec encode(document()) ::
           {:ok, String.t()}
           | {:error, term()}
   def encode([]) do
