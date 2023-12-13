@@ -1,5 +1,5 @@
 defmodule Kuddle.V1.TokenizerTest do
-  use ExUnit.Case, async: true
+  use Kuddle.Support.Case, async: true
 
   import Kuddle.V1.Tokenizer
 

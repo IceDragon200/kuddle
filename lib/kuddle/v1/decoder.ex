@@ -5,9 +5,9 @@ defmodule Kuddle.V1.Decoder do
   alias Kuddle.Value
   alias Kuddle.Node
 
-  import Kuddle.V1.Tokenizer
   import Kuddle.Tokens
-  import Kuddle.V1.Utils
+  import Kuddle.Utils
+  import Kuddle.V1.Tokenizer
 
   @typedoc """
   Parsed tokens from the Tokenizer, these will be processed and converted into the final nodes for
@@ -346,15 +346,39 @@ defmodule Kuddle.V1.Decoder do
   end
 
   defp decode_term(<<"0b", rest::binary>>) do
-    decode_bin_integer(rest)
+    decode_bin_integer(:_, rest)
+  end
+
+  defp decode_term(<<"+0b", rest::binary>>) do
+    decode_bin_integer(:+, rest)
+  end
+
+  defp decode_term(<<"-0b", rest::binary>>) do
+    decode_bin_integer(:-, rest)
   end
 
   defp decode_term(<<"0o", rest::binary>>) do
-    decode_oct_integer(rest)
+    decode_oct_integer(:_, rest)
+  end
+
+  defp decode_term(<<"+0o", rest::binary>>) do
+    decode_oct_integer(:+, rest)
+  end
+
+  defp decode_term(<<"-0o", rest::binary>>) do
+    decode_oct_integer(:-, rest)
   end
 
   defp decode_term(<<"0x", rest::binary>>) do
-    decode_hex_integer(rest)
+    decode_hex_integer(:_, rest)
+  end
+
+  defp decode_term(<<"+0x", rest::binary>>) do
+    decode_hex_integer(:+, rest)
+  end
+
+  defp decode_term(<<"-0x", rest::binary>>) do
+    decode_hex_integer(:-, rest)
   end
 
   defp decode_term("") do
@@ -377,26 +401,26 @@ defmodule Kuddle.V1.Decoder do
     end
   end
 
-  defp decode_bin_integer(bin, state \\ :start, acc \\ [])
+  defp decode_bin_integer(sign, bin, state \\ :start, acc \\ [])
 
-  defp decode_bin_integer(<<>>, :start, _acc) do
+  defp decode_bin_integer(_sign, <<>>, :start, _acc) do
     {:error, :invalid_bin_integer_format}
   end
 
-  defp decode_bin_integer(<<"_", rest::binary>>, :body, acc) do
-    decode_bin_integer(rest, :body, acc)
+  defp decode_bin_integer(sign, <<"_", rest::binary>>, :body, acc) do
+    decode_bin_integer(sign, rest, :body, acc)
   end
 
-  defp decode_bin_integer(<<c::utf8, rest::binary>>, _, acc) when c in [?0, ?1] do
-    decode_bin_integer(rest, :body, [<<c::utf8>> | acc])
+  defp decode_bin_integer(sign, <<c::utf8, rest::binary>>, _, acc) when c in [?0, ?1] do
+    decode_bin_integer(sign, rest, :body, [<<c::utf8>> | acc])
   end
 
-  defp decode_bin_integer(<<_::utf8, _rest::binary>>, _, _acc) do
+  defp decode_bin_integer(_sign, <<_::utf8, _rest::binary>>, _, _acc) do
     {:error, :invalid_bin_integer_format}
   end
 
-  defp decode_bin_integer(<<>>, :body, acc) do
-    case decode_integer(acc, 2) do
+  defp decode_bin_integer(sign, <<>>, :body, acc) do
+    case decode_integer(sign, acc, 2) do
       {:ok, value} ->
         {:ok, %{value | format: :bin}}
 
@@ -405,26 +429,26 @@ defmodule Kuddle.V1.Decoder do
     end
   end
 
-  defp decode_oct_integer(bin, state \\ :start, acc \\ [])
+  defp decode_oct_integer(sign, bin, state \\ :start, acc \\ [])
 
-  defp decode_oct_integer(<<>>, :start, _acc) do
+  defp decode_oct_integer(_sign, <<>>, :start, _acc) do
     {:error, :invalid_oct_integer_format}
   end
 
-  defp decode_oct_integer(<<"_", rest::binary>>, :body, acc) do
-    decode_oct_integer(rest, :body, acc)
+  defp decode_oct_integer(sign, <<"_", rest::binary>>, :body, acc) do
+    decode_oct_integer(sign, rest, :body, acc)
   end
 
-  defp decode_oct_integer(<<c::utf8, rest::binary>>, _, acc) when c in ?0..?7 do
-    decode_oct_integer(rest, :body, [<<c::utf8>> | acc])
+  defp decode_oct_integer(sign, <<c::utf8, rest::binary>>, _, acc) when c in ?0..?7 do
+    decode_oct_integer(sign, rest, :body, [<<c::utf8>> | acc])
   end
 
-  defp decode_oct_integer(<<_::utf8, _rest::binary>>, _, _acc) do
+  defp decode_oct_integer(_sign, <<_::utf8, _rest::binary>>, _, _acc) do
     {:error, :invalid_oct_integer_format}
   end
 
-  defp decode_oct_integer(<<>>, :body, acc) do
-    case decode_integer(acc, 8) do
+  defp decode_oct_integer(sign, <<>>, :body, acc) do
+    case decode_integer(sign, acc, 8) do
       {:ok, value} ->
         {:ok, %{value | format: :oct}}
 
@@ -456,7 +480,7 @@ defmodule Kuddle.V1.Decoder do
   end
 
   defp decode_dec_integer(<<>>, :body, acc) do
-    case decode_integer(acc, 10) do
+    case decode_integer(nil, acc, 10) do
       {:ok, value} ->
         {:ok, %{value | format: :dec}}
 
@@ -465,28 +489,28 @@ defmodule Kuddle.V1.Decoder do
     end
   end
 
-  defp decode_hex_integer(bin, state \\ :start, acc \\ [])
+  defp decode_hex_integer(sign, bin, state \\ :start, acc \\ [])
 
-  defp decode_hex_integer(<<>>, :start, _acc) do
+  defp decode_hex_integer(_sign, <<>>, :start, _acc) do
     {:error, :invalid_hex_integer_format}
   end
 
-  defp decode_hex_integer(<<"_", rest::binary>>, :body, acc) do
-    decode_hex_integer(rest, :body, acc)
+  defp decode_hex_integer(sign, <<"_", rest::binary>>, :body, acc) do
+    decode_hex_integer(sign, rest, :body, acc)
   end
 
-  defp decode_hex_integer(<<c::utf8, rest::binary>>, _, acc) when c in ?0..?9 or
+  defp decode_hex_integer(sign, <<c::utf8, rest::binary>>, _, acc) when c in ?0..?9 or
                                                                   c in ?A..?F or
                                                                   c in ?a..?f do
-    decode_hex_integer(rest, :body, [<<c::utf8>> | acc])
+    decode_hex_integer(sign, rest, :body, [<<c::utf8>> | acc])
   end
 
-  defp decode_hex_integer(<<_::utf8, _rest::binary>>, _, _acc) do
+  defp decode_hex_integer(_sign, <<_::utf8, _rest::binary>>, _, _acc) do
     {:error, :invalid_hex_integer_format}
   end
 
-  defp decode_hex_integer(<<>>, :body, acc) do
-    case decode_integer(acc, 16) do
+  defp decode_hex_integer(sign, <<>>, :body, acc) do
+    case decode_integer(sign, acc, 16) do
       {:ok, value} ->
         {:ok, %{value | format: :hex}}
 
@@ -495,7 +519,7 @@ defmodule Kuddle.V1.Decoder do
     end
   end
 
-  defp decode_integer(acc, radix) do
+  defp decode_integer(nil, acc, radix) do
     case Integer.parse(IO.iodata_to_binary(Enum.reverse(acc)), radix) do
       {int, ""} ->
         {:ok, %Value{value: int, type: :integer}}
@@ -505,6 +529,21 @@ defmodule Kuddle.V1.Decoder do
 
       :error ->
         {:error, :invalid_integer_format}
+    end
+  end
+
+  defp decode_integer(sign, acc, radix) do
+    case decode_integer(nil, acc, radix) do
+      {:ok, %Value{} = value} ->
+        # handle the explicit sign, so why?
+        # erlang otp27 introduced +0.0 and -0.0, so we need to handle those moving forward
+        case sign do
+          :_ -> {:ok, value}
+          :+ -> {:ok, %{value | value: +value.value}}
+          :- -> {:ok, %{value | value: -value.value}}
+        end
+      {:error, _} = err ->
+        err
     end
   end
 

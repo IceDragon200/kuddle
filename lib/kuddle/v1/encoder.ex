@@ -5,7 +5,6 @@ defmodule Kuddle.V1.Encoder do
   alias Kuddle.Value
   alias Kuddle.Node
 
-  import Kuddle.Utils
   import Kuddle.V1.Utils
 
   @type document :: Kuddle.V1.Decoder.document()

@@ -15,6 +15,10 @@ defmodule Kuddle.V2.Utils do
     false
   end
 
+  def valid_identifier?(<<"-", c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
+    false
+  end
+
   def valid_identifier?(<<c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
     false
   end
@@ -38,6 +42,10 @@ defmodule Kuddle.V2.Utils do
   end
 
   def need_quote?(<<c::utf8, _rest::binary>>, _) when c < 0x20 or c > 0x10FFFF do
+    true
+  end
+
+  def need_quote?(<<"-", c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
     true
   end
 

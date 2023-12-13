@@ -1,5 +1,5 @@
 defmodule Kuddle.PathTest do
-  use ExUnit.Case, async: true
+  use Kuddle.Support.Case, async: true
 
   alias Kuddle.Node
 

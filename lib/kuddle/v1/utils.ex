@@ -15,6 +15,10 @@ defmodule Kuddle.V1.Utils do
     false
   end
 
+  def valid_identifier?(<<"-", c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
+    false
+  end
+
   def valid_identifier?(<<c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
     false
   end

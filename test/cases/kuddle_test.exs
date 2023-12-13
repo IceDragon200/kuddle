@@ -1,3 +1,3 @@
 defmodule KuddleTest do
-  use ExUnit.Case
+  use Kuddle.Support.Case
 end

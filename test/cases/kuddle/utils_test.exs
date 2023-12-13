@@ -1,5 +1,5 @@
 defmodule Kuddle.UtilsTest do
-  use ExUnit.Case, async: true
+  use Kuddle.Support.Case, async: true
 
   import Kuddle.Utils
 

@@ -1,10 +1,127 @@
 defmodule Kuddle.V1.DecoderTest do
-  use ExUnit.Case, async: true
+  use Kuddle.Support.Case, async: true
 
   alias Kuddle.V1.Decoder
   alias Kuddle.Node
 
   describe "decode/1" do
+    test "can decode numbers without a sign" do
+      assert {:ok, [
+        %Node{
+          name: "bin",
+          attributes: [
+            %{type: :integer, value: 0b10},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "oct",
+          attributes: [
+            %{type: :integer, value: 0o12},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "dec",
+          attributes: [
+            %{type: :integer, value: 12},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "hex",
+          attributes: [
+            %{type: :integer, value: 0x12},
+          ],
+          children: nil,
+        },
+      ], []} = Decoder.decode("""
+        bin 0b10
+        oct 0o12
+        dec 12
+        hex 0x12
+        """
+      )
+    end
+
+    test "can decode numbers with a - sign" do
+      assert {:ok, [
+        %Node{
+          name: "bin",
+          attributes: [
+            %{type: :integer, value: -0b10},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "oct",
+          attributes: [
+            %{type: :integer, value: -0o12},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "dec",
+          attributes: [
+            %{type: :integer, value: -12},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "hex",
+          attributes: [
+            %{type: :integer, value: -0x12},
+          ],
+          children: nil,
+        },
+      ], []} = Decoder.decode("""
+        bin -0b10
+        oct -0o12
+        dec -12
+        hex -0x12
+        """
+      )
+    end
+
+    test "can decode numbers with a + sign" do
+      assert {:ok, [
+        %Node{
+          name: "bin",
+          attributes: [
+            %{type: :integer, value: +0b10},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "oct",
+          attributes: [
+            %{type: :integer, value: +0o12},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "dec",
+          attributes: [
+            %{type: :integer, value: +12},
+          ],
+          children: nil,
+        },
+        %Node{
+          name: "hex",
+          attributes: [
+            %{type: :integer, value: +0x12},
+          ],
+          children: nil,
+        },
+      ], []} = Decoder.decode("""
+        bin +0b10
+        oct +0o12
+        dec +12
+        hex +0x12
+        """
+      )
+    end
+
     test "can decode scientific exponent" do
       value = Decimal.new("1.23e-1000")
 

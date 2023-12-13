@@ -215,7 +215,9 @@ defmodule Kuddle.V2.Tokenizer do
     {:error, {:unterminated_dquote_string, Enum.reverse(acc)}}
   end
 
-  # raw string
+  #
+  # Raw String
+  #
   defp do_tokenize(<<"r\"", rest::binary>>, :default, nil, doc, meta) do
     do_tokenize(rest, {:raw_string, "\""}, [], doc, add_col(meta, 2))
   end
@@ -260,6 +262,10 @@ defmodule Kuddle.V2.Tokenizer do
     rest = String.trim_leading(rest, "\s")
     len = len - byte_size(rest) + 1
     do_tokenize(rest, :default, nil, [r_space_token(value: len, meta: meta) | doc], add_col(meta, len))
+  end
+
+  defp do_tokenize(<<"\v", rest::binary>>, :default, nil, doc, meta) do
+    do_tokenize(rest, :default, nil, [r_space_token(value: "\v", meta: meta) | doc], add_col(meta))
   end
 
   defp do_tokenize(<<"\t", rest::binary>>, :default, nil, doc, meta) do
