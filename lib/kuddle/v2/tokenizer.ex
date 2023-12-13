@@ -213,6 +213,10 @@ defmodule Kuddle.V2.Tokenizer do
     do_tokenize(rest, state, [{:esc, "\s"} | acc], doc, add_col(meta, 2))
   end
 
+  defp do_tokenize(<<"\\t", rest::binary>>, {:dquote_string, _} = state, acc, doc, meta) do
+    do_tokenize(rest, state, [{:esc, "\t"} | acc], doc, add_col(meta, 2))
+  end
+
   defp do_tokenize(
     <<"\\", c::utf8, _rest::binary>> = rest,
     {:dquote_string, _} = state,
@@ -223,10 +227,6 @@ defmodule Kuddle.V2.Tokenizer do
     <<"\\", rest::binary>> = rest
     {spaces, rest, meta} = split_spaces_and_newlines(rest, meta)
     do_tokenize(rest, state, acc, doc, add_col(meta, byte_size(spaces)))
-  end
-
-  defp do_tokenize(<<"\\t", rest::binary>>, {:dquote_string, _} = state, acc, doc, meta) do
-    do_tokenize(rest, state, [{:esc, "\t"} | acc], doc, add_col(meta, 2))
   end
 
   defp do_tokenize(<<"\\\\", rest::binary>>, {:dquote_string, _} = state, acc, doc, meta) do
