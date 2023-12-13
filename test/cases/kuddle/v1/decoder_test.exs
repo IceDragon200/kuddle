@@ -6,6 +6,8 @@ defmodule Kuddle.V1.DecoderTest do
 
   describe "decode/1" do
     test "can decode numbers without a sign" do
+      flt = Decimal.new("12.5")
+
       assert {:ok, [
         %Node{
           name: "bin",
@@ -35,16 +37,26 @@ defmodule Kuddle.V1.DecoderTest do
           ],
           children: nil,
         },
+        %Node{
+          name: "flt",
+          attributes: [
+            %{type: :float, value: ^flt},
+          ],
+          children: nil,
+        },
       ], []} = Decoder.decode("""
         bin 0b10
         oct 0o12
         dec 12
         hex 0x12
+        flt 12.5
         """
       )
     end
 
     test "can decode numbers with a - sign" do
+      flt = Decimal.new("-12.5")
+
       assert {:ok, [
         %Node{
           name: "bin",
@@ -74,16 +86,26 @@ defmodule Kuddle.V1.DecoderTest do
           ],
           children: nil,
         },
+        %Node{
+          name: "flt",
+          attributes: [
+            %{type: :float, value: ^flt},
+          ],
+          children: nil,
+        },
       ], []} = Decoder.decode("""
         bin -0b10
         oct -0o12
         dec -12
         hex -0x12
+        flt -12.5
         """
       )
     end
 
     test "can decode numbers with a + sign" do
+      flt = Decimal.new("+12.5")
+
       assert {:ok, [
         %Node{
           name: "bin",
@@ -113,11 +135,19 @@ defmodule Kuddle.V1.DecoderTest do
           ],
           children: nil,
         },
+        %Node{
+          name: "flt",
+          attributes: [
+            %{type: :float, value: ^flt},
+          ],
+          children: nil,
+        },
       ], []} = Decoder.decode("""
         bin +0b10
         oct +0o12
         dec +12
         hex +0x12
+        flt +12.5
         """
       )
     end

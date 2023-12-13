@@ -23,6 +23,9 @@ defmodule Kuddle.V2.Encoder do
     case do_encode(doc, []) do
       {:ok, rows} ->
         {:ok, IO.iodata_to_binary(rows)}
+
+      {:error, _} = err ->
+        err
     end
   end
 
@@ -31,16 +34,16 @@ defmodule Kuddle.V2.Encoder do
   end
 
   defp do_encode([%Node{name: name, attributes: attrs, children: nil} | rest], rows) do
-    node_name = encode_node_name(name)
+    {:ok, node_name} = encode_node_name(name)
 
     result = [node_name]
 
     result =
       case encode_node_attributes(attrs, []) do
-        [] ->
+        {:ok, []} ->
           result
 
-        node_attrs ->
+        {:ok, node_attrs} ->
           [result, " ", Enum.intersperse(node_attrs, " ")]
       end
 
@@ -48,16 +51,16 @@ defmodule Kuddle.V2.Encoder do
   end
 
   defp do_encode([%Node{name: name, attributes: attrs, children: children} | rest], rows) do
-    node_name = encode_node_name(name)
+    {:ok, node_name} = encode_node_name(name)
 
     result = [node_name]
 
     result =
       case encode_node_attributes(attrs, []) do
-        [] ->
+        {:ok, []} ->
           result
 
-        node_attrs ->
+        {:ok, node_attrs} ->
           [result, " ", Enum.intersperse(node_attrs, " ")]
       end
 
@@ -84,60 +87,97 @@ defmodule Kuddle.V2.Encoder do
   end
 
   defp encode_node_attributes([%Value{} = value | rest], acc) do
-    encode_node_attributes(rest, [encode_value(value) | acc])
+    case encode_value(value) do
+      {:ok, value} ->
+        encode_node_attributes(rest, [value | acc])
+
+      {:error, _} = err ->
+        err
+    end
   end
 
   defp encode_node_attributes([{%Value{} = key, %Value{} = value} | rest], acc) do
-    result = [encode_value(key), "=", encode_value(value)]
-    encode_node_attributes(rest, [result | acc])
+    with {:ok, key} <- encode_value(key),
+      {:ok, value} <- encode_value(value)
+    do
+      result = [key, "=", value]
+      encode_node_attributes(rest, [result | acc])
+    else
+      {:error, _} = err ->
+        err
+    end
   end
 
   defp encode_node_attributes([], acc) do
-    Enum.reverse(acc)
+    {:ok, Enum.reverse(acc)}
   end
 
   defp encode_value(%Value{value: nil}) do
-    "null"
+    {:ok, "#null"}
   end
 
   defp encode_value(%Value{type: :boolean, value: value}) when is_boolean(value) do
-    Atom.to_string(value)
+    {:ok, "#" <> Atom.to_string(value)}
+  end
+
+  defp encode_value(%Value{type: :keyword, value: value}) when is_binary(value) do
+    if need_quote?(value) do
+      {:error, :invalid_keyword}
+    else
+      {:ok, "##{value}"}
+    end
   end
 
   defp encode_value(%Value{type: :string, value: value}) when is_binary(value) do
     encode_string(value)
   end
 
-  defp encode_value(%Value{type: :integer, value: value, format: format}) when is_integer(value) do
+  defp encode_value(%Value{type: :integer, value: value, format: format}) when is_integer(value) and value >= 0 do
     case format do
       :bin ->
-        ["0b", Integer.to_string(value, 2)]
+        {:ok, ["0b", Integer.to_string(value, 2)]}
 
       :oct ->
-        ["0o", Integer.to_string(value, 8)]
+        {:ok, ["0o", Integer.to_string(value, 8)]}
 
       :dec ->
-        Integer.to_string(value, 10)
+        {:ok, Integer.to_string(value, 10)}
 
       :hex ->
-        ["0x", String.downcase(Integer.to_string(value, 16))]
+        {:ok, ["0x", String.downcase(Integer.to_string(value, 16))]}
+    end
+  end
+
+  defp encode_value(%Value{type: :integer, value: value, format: format}) when is_integer(value) and value < 0 do
+    case format do
+      :bin ->
+        {:ok, ["-0b", Integer.to_string(-value, 2)]}
+
+      :oct ->
+        {:ok, ["-0o", Integer.to_string(-value, 8)]}
+
+      :dec ->
+        {:ok, Integer.to_string(value, 10)}
+
+      :hex ->
+        {:ok, ["-0x", String.downcase(Integer.to_string(-value, 16))]}
     end
   end
 
   defp encode_value(%Value{type: :float, value: value}) when is_float(value) do
-    String.upcase(Float.to_string(value))
+    {:ok, String.upcase(Float.to_string(value))}
   end
 
   defp encode_value(%Value{type: :float, value: %Decimal{} = value}) do
-    String.upcase(Decimal.to_string(value, :scientific))
+    {:ok, String.upcase(Decimal.to_string(value, :scientific))}
   end
 
   defp encode_value(%Value{type: :id, value: value}) when is_binary(value) do
-    value
+    {:ok, value}
   end
 
   defp encode_string(str) do
-    "\"" <> do_encode_string(str, []) <> "\""
+    {:ok, "\"" <> do_encode_string(str, []) <> "\""}
   end
 
   defp do_encode_string(<<>>, acc) do
@@ -176,13 +216,17 @@ defmodule Kuddle.V2.Encoder do
     do_encode_string(rest, ["\\t" | acc])
   end
 
+  defp do_encode_string(<<"\v", rest::binary>>, acc) do
+    do_encode_string(rest, ["\\v" | acc])
+  end
+
   defp do_encode_string(<<c::utf8, rest::binary>>, acc) do
     do_encode_string(rest, [<<c::utf8>> | acc])
   end
 
   defp encode_node_name(name) do
     if valid_identifier?(name) and not need_quote?(name) do
-      name
+      {:ok, name}
     else
       encode_string(name)
     end

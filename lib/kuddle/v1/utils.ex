@@ -1,4 +1,6 @@
 defmodule Kuddle.V1.Utils do
+  import Kuddle.Utils
+
   @non_identifier_characters [?\\, ?<, ?>, ?{, ?}, ?;, ?[, ?], ?(, ?), ?=, ?,, ?"]
 
   @doc """
@@ -15,11 +17,11 @@ defmodule Kuddle.V1.Utils do
     false
   end
 
-  def valid_identifier?(<<"-", c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
+  def valid_identifier?(<<s::utf8, c::utf8, _rest::binary>>, :start) when is_utf8_sign(s) and is_utf8_digit(c) do
     false
   end
 
-  def valid_identifier?(<<c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
+  def valid_identifier?(<<c::utf8, _rest::binary>>, :start) when is_utf8_digit(c) do
     false
   end
 
@@ -45,7 +47,11 @@ defmodule Kuddle.V1.Utils do
     true
   end
 
-  def need_quote?(<<c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
+  def need_quote?(<<s::utf8, c::utf8, _rest::binary>>, :start) when is_utf8_sign(s) and is_utf8_digit(c) do
+    true
+  end
+
+  def need_quote?(<<c::utf8, _rest::binary>>, :start) when is_utf8_digit(c) do
     true
   end
 

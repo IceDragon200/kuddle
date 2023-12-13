@@ -5,6 +5,7 @@ defmodule Kuddle.V1.Tokenizer do
   alias Kuddle.Tokens
 
   import Tokens
+  import Kuddle.Utils
 
   @type token :: Tokens.open_block_token()
                | Tokens.close_block_token()
@@ -20,23 +21,6 @@ defmodule Kuddle.V1.Tokenizer do
                | Tokens.term_token()
 
   @type tokens :: [token()]
-
-  defmacrop add_line(meta, amount \\ 1) do
-    quote do
-      r_token_meta(unquote(meta),
-        line_no: r_token_meta(unquote(meta), :line_no) + unquote(amount),
-        col_no: 1
-      )
-    end
-  end
-
-  defmacrop add_col(meta, amount \\ 1) do
-    quote do
-      r_token_meta(unquote(meta),
-        col_no: r_token_meta(unquote(meta), :col_no) + unquote(amount)
-      )
-    end
-  end
 
   @spec tokenize(String.t()) ::
           {:ok, tokens(), rest::String.t()}

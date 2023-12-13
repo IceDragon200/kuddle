@@ -108,7 +108,7 @@ defmodule Kuddle.V1.Encoder do
     encode_string(value)
   end
 
-  defp encode_value(%Value{type: :integer, value: value, format: format}) when is_integer(value) do
+  defp encode_value(%Value{type: :integer, value: value, format: format}) when is_integer(value) and value >= 0 do
     case format do
       :bin ->
         ["0b", Integer.to_string(value, 2)]
@@ -121,6 +121,22 @@ defmodule Kuddle.V1.Encoder do
 
       :hex ->
         ["0x", String.downcase(Integer.to_string(value, 16))]
+    end
+  end
+
+  defp encode_value(%Value{type: :integer, value: value, format: format}) when is_integer(value) and value < 0 do
+    case format do
+      :bin ->
+        ["-0b", Integer.to_string(-value, 2)]
+
+      :oct ->
+        ["-0o", Integer.to_string(-value, 8)]
+
+      :dec ->
+        Integer.to_string(value, 10)
+
+      :hex ->
+        ["-0x", String.downcase(Integer.to_string(-value, 16))]
     end
   end
 

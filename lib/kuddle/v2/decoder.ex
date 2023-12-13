@@ -212,13 +212,8 @@ defmodule Kuddle.V2.Decoder do
             end
 
           tokens ->
-            case key do
-              %{type: :id} ->
-                {:error, {:bare_identifier, key}}
-
-              _ ->
-                parse(tokens, state, {name, node_annotations, [key | attrs]}, doc)
-            end
+            # Once upon a time, we disallowed bare identifiers here, not anymore
+            parse(tokens, state, {name, node_annotations, [key | attrs]}, doc)
         end
 
       {:error, _} = err ->
@@ -333,16 +328,20 @@ defmodule Kuddle.V2.Decoder do
     {:ok, %Value{value: value, type: :string}}
   end
 
-  defp decode_term("true") do
+  defp decode_term("#true") do
     {:ok, %Value{value: true, type: :boolean}}
   end
 
-  defp decode_term("false") do
+  defp decode_term("#false") do
     {:ok, %Value{value: false, type: :boolean}}
   end
 
-  defp decode_term("null") do
+  defp decode_term("#null") do
     {:ok, %Value{type: :null, value: nil}}
+  end
+
+  defp decode_term("#" <> rest) do
+    {:ok, %Value{type: :keyword, value: rest}}
   end
 
   defp decode_term(<<"0b", rest::binary>>) do
