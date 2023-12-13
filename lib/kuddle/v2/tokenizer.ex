@@ -575,7 +575,11 @@ defmodule Kuddle.V2.Tokenizer do
   ) do
     # the accumulator is a valid charlist at the moment so we can quickly turn it into a b
     c = List.to_integer(Enum.reverse(acc), 16)
-    {:ok, {c, rest, meta}}
+    if is_utf8_scalar(c) do
+      {:ok, {c, rest, meta}}
+    else
+      {:error, :invalid_unicode_scalar}
+    end
   end
 
   defp parse_unicode_sequence(_rest, _meta, _acc) do
