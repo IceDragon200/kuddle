@@ -17,11 +17,14 @@ defmodule Kuddle.V1.Utils do
     false
   end
 
-  def valid_identifier?(<<s::utf8, c::utf8, _rest::binary>>, :start) when is_utf8_sign(s) and is_utf8_digit(c) do
+  def valid_identifier?(
+    <<s::utf8, c::utf8, _rest::binary>>,
+    :start
+  ) when is_utf8_sign_char(s) and is_utf8_digit_char(c) do
     false
   end
 
-  def valid_identifier?(<<c::utf8, _rest::binary>>, :start) when is_utf8_digit(c) do
+  def valid_identifier?(<<c::utf8, _rest::binary>>, :start) when is_utf8_digit_char(c) do
     false
   end
 
@@ -47,11 +50,14 @@ defmodule Kuddle.V1.Utils do
     true
   end
 
-  def need_quote?(<<s::utf8, c::utf8, _rest::binary>>, :start) when is_utf8_sign(s) and is_utf8_digit(c) do
+  def need_quote?(
+    <<s::utf8, c::utf8, _rest::binary>>,
+    :start
+  ) when is_utf8_sign_char(s) and is_utf8_digit_char(c) do
     true
   end
 
-  def need_quote?(<<c::utf8, _rest::binary>>, :start) when is_utf8_digit(c) do
+  def need_quote?(<<c::utf8, _rest::binary>>, :start) when is_utf8_digit_char(c) do
     true
   end
 

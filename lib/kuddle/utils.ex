@@ -4,10 +4,14 @@ defmodule Kuddle.Utils do
   """
   import Kuddle.Tokens
 
-  defguard is_utf8_sign(c) when c in [?+, ?-]
-  defguard is_utf8_digit(c) when c >= ?0 and c <= ?9
-  defguard is_utf8_scalar(c) when (c >= 0x0000 and c <= 0xD7FF) or (c >= 0xE000 and c <= 0x10FFFF)
-  defguard is_utf8_direction_control(c) when (c >= 0x2066 and c <= 0x2069) or (c >= 0x202A and c <= 0x202E)
+  defguard is_utf8_bom_char(c) when c == 0xFEFF
+  defguard is_utf8_sign_char(c) when c in [?+, ?-]
+  defguard is_utf8_digit_char(c) when c >= ?0 and c <= ?9
+  defguard is_utf8_scalar_char(c) when (c >= 0x0000 and c <= 0xD7FF) or (c >= 0xE000 and c <= 0x10FFFF)
+  defguard is_utf8_direction_control_char(c) when
+    (c >= 0x200E and c <= 0x200F) or
+    (c >= 0x2066 and c <= 0x2069) or
+    (c >= 0x202A and c <= 0x202E)
 
   defmacro add_line(meta, amount \\ 1) do
     quote do

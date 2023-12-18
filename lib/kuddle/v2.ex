@@ -26,10 +26,10 @@ defmodule Kuddle.V2 do
       "node" = Kuddle.encode([%Node{name: "node"}])
 
   """
-  @spec encode(document()) ::
+  @spec encode(document(), Keyword.t()) ::
           {:ok, String.t()}
           | {:error, term()}
-  defdelegate encode(doc), to: Kuddle.V2.Encoder
+  defdelegate encode(doc, options \\ []), to: Kuddle.V2.Encoder
 
   @doc """
   Select allows searching a document for particular nodes by name, and or attributes.

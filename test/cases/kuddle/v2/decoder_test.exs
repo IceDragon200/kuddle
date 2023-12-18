@@ -2,6 +2,7 @@ defmodule Kuddle.V2.DecoderTest do
   use Kuddle.Support.Case, async: true
 
   alias Kuddle.V2.Decoder
+  alias Kuddle.Value
   alias Kuddle.Node
 
   describe "comments" do
@@ -11,6 +12,65 @@ defmodule Kuddle.V2.DecoderTest do
 
     test "can parse a single line content terminated by newline" do
       assert {:ok, [], []} = Decoder.decode("//\n")
+    end
+
+    test "can parse single line comment with node prior" do
+      assert {:ok, [
+        %Node{name: "node", attributes: [], children: nil},
+        %Node{name: "node2", attributes: [], children: nil},
+      ], []} = Decoder.decode("""
+      node //
+      node2
+      """)
+    end
+
+    test "can folded comments with single arg" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: [],
+          attributes: [
+            %Value{type: :id, value: "arg"},
+          ],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      node \\ //
+        arg
+      """)
+    end
+
+    test "can folded comments with multiple args" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: [],
+          attributes: [
+            %Value{type: :id, value: "arg"},
+            %Value{type: :id, value: "arg2"},
+          ],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      node \\ // Hello
+        arg \\ // World
+        arg2
+      """)
+    end
+  end
+
+  describe "nodes" do
+    test "can parse annotated node" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: ["type"],
+          attributes: [],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      (type)node
+      """)
     end
   end
 
@@ -26,6 +86,25 @@ defmodule Kuddle.V2.DecoderTest do
         },
       ], []} = Decoder.decode("""
       str "This is a double quoted string"
+      """)
+    end
+
+    test "can parse annotated string" do
+      assert {:ok, [
+        %Node{
+          name: "str",
+          attributes: [
+            %Value{
+              type: :id,
+              value: "Hello",
+              annotations: ["type"],
+            },
+          ],
+          annotations: [],
+          children: nil
+        }
+      ], []} = Decoder.decode("""
+      str (type)Hello
       """)
     end
 
@@ -78,7 +157,7 @@ defmodule Kuddle.V2.DecoderTest do
         %Node{
           name: "str",
           attributes: [
-            %{type: :string, value: "\n"},
+            %{type: :string, value: ""},
           ],
           children: nil
         },
@@ -94,12 +173,7 @@ defmodule Kuddle.V2.DecoderTest do
         %Node{
           name: "str",
           attributes: [
-            %{type: :string, value: """
-            This string has:
-            * multiple
-            * cool
-            * lines
-            """},
+            %{type: :string, value: "This string has:\n* multiple\n* cool\n* lines"},
           ],
           children: nil
         },
@@ -154,13 +228,7 @@ defmodule Kuddle.V2.DecoderTest do
         %Node{
           name: "raw",
           attributes: [
-            %{type: :string, value: """
-            Line 1
-              Line 2
-                Line 3
-              Line 4
-            Line 5
-            """},
+            %{type: :string, value: "Line 1\n  Line 2\n    Line 3\n  Line 4\nLine 5"},
           ],
           children: nil
         },
@@ -227,6 +295,64 @@ defmodule Kuddle.V2.DecoderTest do
         },
       ], []} = Decoder.decode("""
       keyword #not-really
+      """)
+    end
+  end
+
+  describe "spaces" do
+    test "can handle spaces around key-value pairs" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          attributes: [
+            {
+              %Value{type: :id, format: :plain, value: "foo"},
+              %Value{type: :id, format: :plain, value: "bar"},
+            }
+          ],
+          children: nil
+        }
+      ], []} = Decoder.decode("""
+      node foo = bar
+      """)
+    end
+
+    test "can handle around properties with type annotations" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          attributes: [
+            {
+              %Value{type: :id, format: :plain, value: "foo"},
+              %Value{
+                type: :id,
+                format: :plain,
+                annotations: ["type"],
+                value: "bar"
+              },
+            }
+          ],
+          children: nil
+        }
+      ], []} = Decoder.decode("""
+      node foo =(type) bar
+      """)
+    end
+  end
+
+  describe "semicolons" do
+    test "can handle a single line node" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          children: [
+            %Node{name: "foo", attributes: [], children: nil},
+            %Node{name: "bar", attributes: [], children: nil},
+            %Node{name: "baz", attributes: [], children: nil},
+          ]
+        }
+      ], []} = Decoder.decode("""
+      node {foo;bar;baz}
       """)
     end
   end

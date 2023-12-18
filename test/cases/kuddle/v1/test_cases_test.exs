@@ -1,7 +1,10 @@
 defmodule Kuddle.V1.TestCasesTest do
   use Kuddle.Support.Case, async: true
 
-  for filename <- Path.wildcard(fixture_path("v1/test_cases/input/*.kdl")) do
+  fixture_path("v1/test_cases/input/*.kdl")
+  |> Path.wildcard()
+  |> Enum.sort()
+  |> Enum.each(fn filename ->
     basename = Path.basename(filename)
     expected_filename = Path.join([fixture_path("v1/test_cases/output"), basename])
 
@@ -20,5 +23,5 @@ defmodule Kuddle.V1.TestCasesTest do
         end
       end
     end
-  end
+  end)
 end
