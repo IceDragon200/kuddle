@@ -72,6 +72,19 @@ defmodule Kuddle.V2.DecoderTest do
       (type)node
       """)
     end
+
+    test "can parse annotated node with generous spacing" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: ["type"],
+          attributes: [],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      (   type     )     node
+      """)
+    end
   end
 
   describe "double quoted strings" do
