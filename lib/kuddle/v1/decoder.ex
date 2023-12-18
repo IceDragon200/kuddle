@@ -6,7 +6,7 @@ defmodule Kuddle.V1.Decoder do
   alias Kuddle.Node
 
   import Kuddle.Tokens
-  import Kuddle.Utils
+  import Kuddle.V1.Utils
   import Kuddle.V1.Tokenizer
 
   @typedoc """

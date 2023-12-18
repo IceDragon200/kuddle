@@ -6,7 +6,6 @@ defmodule Kuddle.V2.Decoder do
   alias Kuddle.Node
 
   import Kuddle.Tokens
-  import Kuddle.Utils
   import Kuddle.V2.Utils
   import Kuddle.V2.Tokenizer
 
@@ -737,7 +736,7 @@ defmodule Kuddle.V2.Decoder do
     end
   end
 
-  defp decode_float(value) do
+  defp decode_float(value) when is_binary(value) do
     case parse_float_string(value) do
       {:ok, value} ->
         case Decimal.parse(value) do

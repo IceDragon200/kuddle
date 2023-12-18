@@ -1,18 +1,7 @@
-defmodule Kuddle.V2.UtilsTest do
+defmodule Kuddle.V1.UtilsTest do
   use Kuddle.Support.Case, async: true
 
-  import Kuddle.V2.Utils
-  import Kuddle.Tokens
-
-  describe "split_up_to_newline/2" do
-    test "can split a string up to a newline" do
-      meta = r_token_meta()
-
-      assert {:ok, "a", "\nb", _meta} = split_up_to_newline("a\nb", meta)
-      assert {:ok, "a", "\rb", _meta} = split_up_to_newline("a\rb", meta)
-      assert {:ok, "a", "\r\nb", _meta} = split_up_to_newline("a\r\nb", meta)
-    end
-  end
+  import Kuddle.V1.Utils
 
   describe "parse_float_string/1" do
     test "can parse a simple float" do
