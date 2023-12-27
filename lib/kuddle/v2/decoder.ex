@@ -97,6 +97,11 @@ defmodule Kuddle.V2.Decoder do
     parse(tokens, state, acc, doc)
   end
 
+  defp parse([r_fold_token() = token], {:default, _} = state, _acc, doc) do
+    res = [token: token, state: state, document: doc]
+    {:error, {:unexpected_end_of_document, res}}
+  end
+
   defp parse([r_fold_token() | tokens], {:default, _} = state, acc, doc) do
     case unfold_leading_tokens(tokens) do
       {:ok, tokens} ->
@@ -150,6 +155,10 @@ defmodule Kuddle.V2.Decoder do
 
   defp parse([r_space_token() | tokens], {:annotation, _depth} = state, acc, doc) do
     # trim spaces
+    parse(tokens, state, acc, doc)
+  end
+
+  defp parse([r_comment_token() | tokens], {:annotation, _depth} = state, acc, doc) do
     parse(tokens, state, acc, doc)
   end
 
@@ -303,7 +312,14 @@ defmodule Kuddle.V2.Decoder do
     doc
   ) do
     case token_to_value(token) do
-      {:ok, %Value{} = key} ->
+      {:ok, %Value{value: key_str} = key} ->
+        if key.type == :id do
+          unless valid_identifier?(key_str) do
+            res = [state: state, reason: :invalid_identifier, document: doc, value: key]
+            throw {:error, {:invalid_bare_identifier, res}}
+          end
+        end
+
         {key_annotations, attrs} =
           case attrs do
             [] ->
@@ -320,6 +336,15 @@ defmodule Kuddle.V2.Decoder do
 
         case trim_leading_space(tokens) do
           [r_equal_token() | tokens] ->
+            case key.annotations do
+              [] ->
+                :ok
+
+              [_ | _]  ->
+                res = [state: state, reason: :invalid_identifier, document: doc]
+                throw {:error, {:key_annotations_not_allowed, res}}
+            end
+
             tokens = trim_leading_space(tokens)
             result =
               case tokens do
@@ -391,6 +416,8 @@ defmodule Kuddle.V2.Decoder do
         res = [state: state, reason: reason, document: doc]
         {:error, {:invalid_attribute_token, res}}
     end
+  catch {:error, _} = err ->
+    err
   end
 
   defp parse([], {:node, depth}, {name, node_annotations, attrs}, doc) do
@@ -486,11 +513,15 @@ defmodule Kuddle.V2.Decoder do
     trim_leading_space(tokens, remaining)
   end
 
+  defp trim_leading_space([r_comment_token(value: {:c_multiline, _}) | tokens], remaining) when remaining > 0 do
+    trim_leading_space(tokens, remaining)
+  end
+
   defp trim_leading_space([r_newline_token() | tokens], remaining) when remaining > 0 do
     trim_leading_space(tokens, remaining - 1)
   end
 
-  defp trim_leading_space([r_comment_token(), r_newline_token() | tokens], remaining) when remaining > 0 do
+  defp trim_leading_space([r_comment_token(value: {:c, _}), r_newline_token() | tokens], remaining) when remaining > 0 do
     trim_leading_space(tokens, remaining - 1)
   end
 
