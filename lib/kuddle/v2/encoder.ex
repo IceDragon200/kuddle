@@ -68,6 +68,9 @@ defmodule Kuddle.V2.Encoder do
         nil ->
           [result, "\n"]
 
+        [] ->
+          [result, "\n"]
+
         list when is_list(list) ->
           result = [result, " {\n"]
           result =
