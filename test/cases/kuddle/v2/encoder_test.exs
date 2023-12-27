@@ -13,11 +13,11 @@ defmodule Kuddle.V2.EncoderTest do
       """)
     end
 
-    test "will encode annotations on attributes" do
+    test "will encode annotations on properties" do
       assert """
-      node (type1)attr1 (type2)attr2=(type3)abc
+      node (type1)attr1 attr2=(type3)abc
       """ == cycle_encode("""
-      node (type1)attr1 (type2)attr2=(type3)abc
+      node     (type1)  attr1     attr2  =  (type3)  abc
       """)
     end
   end

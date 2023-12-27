@@ -104,7 +104,7 @@ defmodule Kuddle.V2.Decoder do
 
   defp parse([r_fold_token() | tokens], {:default, _} = state, acc, doc) do
     case unfold_leading_tokens(tokens) do
-      {:ok, tokens} ->
+      {:ok, _, tokens} ->
         parse(tokens, state, acc, doc)
 
       {:error, _} = err ->
@@ -127,22 +127,27 @@ defmodule Kuddle.V2.Decoder do
     parse(tokens, state, acc, doc)
   end
 
-  defp parse([r_term_token(value: name) | tokens], {:default, depth}, acc, doc) do
+  defp parse([r_term_token(value: name) = token | tokens], {:default, depth} = state, acc, doc) do
     # node
-    annotations = extract_annotations(acc)
-    parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+    if valid_identifier?(name) do
+      annotations = extract_annotations(acc)
+      parse(tokens, {:node, depth, 0}, {name, annotations, []}, doc)
+    else
+      res = [state: state, reason: :invalid_identifier, document: doc, token: token]
+      {:error, {:invalid_identifier, res}}
+    end
   end
 
   defp parse([r_dquote_string_token(value: name) | tokens], {:default, depth}, acc, doc) do
     # double quote initiated node
     annotations = extract_annotations(acc)
-    parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+    parse(tokens, {:node, depth, 0}, {name, annotations, []}, doc)
   end
 
   defp parse([r_raw_string_token(value: name) | tokens], {:default, depth}, acc, doc) do
     # raw string node
     annotations = extract_annotations(acc)
-    parse(tokens, {:node, depth}, {name, annotations, []}, doc)
+    parse(tokens, {:node, depth, 0}, {name, annotations, []}, doc)
   end
 
   #
@@ -178,27 +183,28 @@ defmodule Kuddle.V2.Decoder do
     res = [state: state, reason: {:unexpected_tokens, tokens}, document: doc]
     {:error, {:invalid_annotation_parse_state, res}}
   end
+
   #
   # Node
   #
-  defp parse([r_slashdash_token() | tokens], {:node, _} = state, {name, annotations, attrs}, doc) do
+  defp parse([r_slashdash_token() | tokens], {:node, _, _} = state, {name, annotations, attrs}, doc) do
     parse(tokens, state, {name, annotations, [:slashdash | attrs]}, doc)
   end
 
-  defp parse([r_comment_token() | tokens], {:node, _} = state, acc, doc) do
+  defp parse([r_comment_token() | tokens], {:node, _, _} = state, acc, doc) do
     # trim comments
     parse(tokens, state, acc, doc)
   end
 
-  defp parse([r_space_token() | tokens], {:node, _} = state, acc, doc) do
-    # trim leading spaces in node
-    parse(tokens, state, acc, doc)
+  defp parse([r_space_token() | tokens], {:node, depth, space}, acc, doc) do
+    # collect leading spaces in node
+    parse(tokens, {:node, depth, space + 1}, acc, doc)
   end
 
-  defp parse([r_fold_token() | tokens], {:node, _} = state, acc, doc) do
+  defp parse([r_fold_token() | tokens], {:node, depth, node_spaces}, acc, doc) do
     case unfold_leading_tokens(tokens) do
-      {:ok, tokens} ->
-        parse(tokens, state, acc, doc)
+      {:ok, fold_spaces, tokens} ->
+        parse(tokens, {:node, depth, node_spaces + fold_spaces}, acc, doc)
 
       {:error, _} = err ->
         err
@@ -207,65 +213,108 @@ defmodule Kuddle.V2.Decoder do
 
   defp parse(
     [{token_type, _value, _meta} | tokens],
-    {:node, depth},
+    {:node, depth, _} = state,
     {name, node_annotations, attrs},
     doc
   ) when token_type in [:nl, :sc] do
-    node = %Node{
-      name: name,
-      annotations: node_annotations,
-      attributes: resolve_node_attributes(attrs),
-      children: nil,
-    }
-    parse(tokens, {:default, depth}, [], [node | doc])
+    case resolve_node_attributes(attrs) do
+      {:ok, attrs} ->
+        node = %Node{
+          name: name,
+          annotations: node_annotations,
+          attributes: attrs,
+          children: nil,
+        }
+        parse(tokens, {:default, depth}, [], [node | doc])
+
+      {:error, reason} ->
+        res = [state: state, reason: reason, document: doc]
+        {:error, {:invalid_node_attributes, res}}
+    end
   end
 
   defp parse(
     [r_close_block_token() | _tokens] = tokens,
-    {:node, depth},
+    {:node, depth, _} = state,
     {name, node_annotations, attrs},
     doc
   ) do
-    node = %Node{
-      name: name,
-      annotations: node_annotations,
-      attributes: resolve_node_attributes(attrs),
-      children: nil,
-    }
-    parse(tokens, {:default, depth}, [], [node | doc])
+    case resolve_node_attributes(attrs) do
+      {:ok, attrs} ->
+        node = %Node{
+          name: name,
+          annotations: node_annotations,
+          attributes: attrs,
+          children: nil,
+        }
+        parse(tokens, {:default, depth}, [], [node | doc])
+
+      {:error, reason} ->
+        res = [state: state, reason: reason, document: doc]
+        {:error, {:invalid_node_attributes, res}}
+    end
+  end
+
+  defp parse(
+    [token | _tokens],
+    {:node, _depth, 0} = state,
+    {_name, _node_annotations, _attrs},
+    doc
+  ) do
+    res = [state: state, reason: :missing_space, document: doc, token: token]
+    {:error, {:unexpected_token_after_node_name, res}}
   end
 
   defp parse(
     [r_open_block_token() | tokens],
-    {:node, depth},
+    {:node, depth, spaces} = state,
     {name, node_annotations, attrs},
     doc
-  ) do
+  ) when spaces > 0 do
     case parse(tokens, {:default, depth + 1}, [], []) do
       {:ok, children, tokens} ->
         case trim_leading_space(tokens) do
-          [r_close_block_token() | tokens] ->
-            node =
+          {_, [r_close_block_token() | tokens]} ->
+            result =
               case attrs do
                 [:slashdash | attrs] ->
                   # discard the children
-                  %Node{
-                    name: name,
-                    annotations: node_annotations,
-                    attributes: resolve_node_attributes(attrs),
-                    children: nil,
-                  }
+                  case resolve_node_attributes(attrs) do
+                    {:ok, attrs} ->
+                      {:ok, %Node{
+                        name: name,
+                        annotations: node_annotations,
+                        attributes: attrs,
+                        children: nil,
+                      }}
+
+                    {:error, _} = err ->
+                      err
+                  end
 
                 attrs ->
-                  %Node{
-                    name: name,
-                    annotations: node_annotations,
-                    attributes: resolve_node_attributes(attrs),
-                    children: children,
-                  }
+                  case resolve_node_attributes(attrs) do
+                    {:ok, attrs} ->
+                      {:ok, %Node{
+                        name: name,
+                        annotations: node_annotations,
+                        attributes: attrs,
+                        children: children,
+                      }}
+
+                    {:error, _} = err ->
+                      err
+                  end
               end
 
-            parse(tokens, {:default, depth}, [], [node | doc])
+            case result do
+              {:ok, node} ->
+                parse(tokens, {:default, depth}, [], [node | doc])
+
+              {:error, reason} ->
+                res = [state: state, reason: reason, document: doc]
+                {:error, {:invalid_node_attributes, res}}
+            end
         end
 
       {:error, _} = err ->
@@ -275,10 +324,10 @@ defmodule Kuddle.V2.Decoder do
 
   defp parse(
     [r_open_annotation_token(meta: meta) | tokens],
-    {:node, depth} = state,
+    {:node, depth, spaces} = state,
     {name, node_annotations, attrs},
     doc
-  ) do
+  ) when spaces > 0 do
     case parse(tokens, {:annotation, depth}, [], []) do
       {:ok, [], _tokens} ->
         res = [state: state, reason: :empty, document: doc]
@@ -307,10 +356,10 @@ defmodule Kuddle.V2.Decoder do
 
   defp parse(
     [token | tokens],
-    {:node, depth} = state,
+    {:node, depth, spaces} = state,
     {name, node_annotations, attrs},
     doc
-  ) do
+  ) when spaces > 0 do
     case token_to_value(token) do
       {:ok, %Value{value: key_str} = key} ->
         if key.type == :id do
@@ -335,7 +384,7 @@ defmodule Kuddle.V2.Decoder do
         key = %{key | annotations: key.annotations ++ key_annotations}
 
         case trim_leading_space(tokens) do
-          [r_equal_token() | tokens] ->
+          {_, [r_equal_token() | tokens]} ->
             case key.annotations do
               [] ->
                 :ok
@@ -345,7 +394,7 @@ defmodule Kuddle.V2.Decoder do
                 throw {:error, {:key_annotations_not_allowed, res}}
             end
 
-            tokens = trim_leading_space(tokens)
+            {_, tokens} = trim_leading_space(tokens)
             result =
               case tokens do
                 [] ->
@@ -378,17 +427,27 @@ defmodule Kuddle.V2.Decoder do
 
             case result do
               {:ok, value_annotations, tokens} ->
-                tokens = trim_leading_space(tokens)
-                [token | tokens] = tokens
+                {_, tokens} = trim_leading_space(tokens)
+                case tokens do
+                  [] ->
+                    res = [state: state, reason: :no_tokens_remaining, document: doc]
+                    {:error, {:invalid_parse_state, res}}
 
-                case token_to_value(token) do
-                  {:ok, %Value{} = value} ->
-                    value = %{value | annotations: value.annotations ++ value_annotations}
-                    parse(tokens, state, {name, node_annotations, [{key, value} | attrs]}, doc)
+                  [token | tokens] ->
+                    case token_to_value(token) do
+                      {:ok, %Value{} = value} ->
+                        value = %{value | annotations: value.annotations ++ value_annotations}
+                        parse(
+                          tokens,
+                          {:node, depth, 0},
+                          {name, node_annotations, [{key, value} | attrs]},
+                          doc
+                        )
 
-                  {:error, reason} ->
-                    res = [state: state, reason: reason, document: doc]
-                    {:error, {:invalid_attribute_value, res}}
+                      {:error, reason} ->
+                        res = [state: state, reason: reason, document: doc]
+                        {:error, {:invalid_attribute_value, res}}
+                    end
                 end
 
               {:error, reason} ->
@@ -396,19 +455,20 @@ defmodule Kuddle.V2.Decoder do
                 {:error, {:invalid_attribute_value_annotation, res}}
             end
 
-          tokens ->
+          {_, _tokens} ->
+            # don't use the trimmed tokens, we need to reset the space
             case key do
-              %Value{type: :id, value: value} ->
+              %Value{type: :id, value: value} = arg ->
                 if valid_identifier?(value) do
-                  # Once upon a time, we disallowed bare identifiers here, not anymore
-                  parse(tokens, state, {name, node_annotations, [key | attrs]}, doc)
+                  # reset spaces
+                  parse(tokens, {:node, depth, 0}, {name, node_annotations, [arg | attrs]}, doc)
                 else
                   res = [state: state, reason: :invalid_identifier, document: doc]
                   {:error, {:invalid_bare_identifier, res}}
                 end
 
-              %Value{} ->
-                parse(tokens, state, {name, node_annotations, [key | attrs]}, doc)
+              %Value{} = arg ->
+                parse(tokens, {:node, depth, 0}, {name, node_annotations, [arg | attrs]}, doc)
             end
         end
 
@@ -420,14 +480,26 @@ defmodule Kuddle.V2.Decoder do
     err
   end
 
-  defp parse([], {:node, depth}, {name, node_annotations, attrs}, doc) do
-    node = %Node{
-      name: name,
-      annotations: node_annotations,
-      attributes: resolve_node_attributes(attrs),
-      children: nil,
-    }
-    parse([], {:default, depth}, [], [node | doc])
+  defp parse(
+    [],
+    {:node, depth, _spaces} = state,
+    {name, node_annotations, attrs},
+    doc
+  ) do
+    case resolve_node_attributes(attrs) do
+      {:ok, attrs} ->
+        node = %Node{
+          name: name,
+          annotations: node_annotations,
+          attributes: attrs,
+          children: nil,
+        }
+        parse([], {:default, depth}, [], [node | doc])
+
+      {:error, reason} ->
+        res = [state: state, reason: reason, document: doc]
+        {:error, {:invalid_node_attributes, res}}
+    end
   end
 
   defp parse([r_close_block_token() | _tokens] = tokens, {:default, _depth}, [], doc) do
@@ -465,72 +537,98 @@ defmodule Kuddle.V2.Decoder do
   end
 
   defp resolve_node_attributes(acc) when is_list(acc) do
-    acc
-    |> Enum.reverse()
-    |> handle_slashdashes([])
-    |> Enum.reduce([], fn
-      {%Value{} = key, %Value{} = value}, acc ->
-        # deduplicate attributes
-        acc =
-          Enum.reject(acc, fn
-            {key2, _value} -> key2.value == key.value
-            _ -> false
-          end)
+    result =
+      acc
+      |> Enum.reverse()
+      |> handle_slashdashes([])
+      |> Enum.reduce_while({:ok, []}, fn
+        r_annotation_token() = token, _acc ->
+          {:halt, {:error, {:unresolved_annotation, token}}}
 
-        [{key, value} | acc]
+        {%Value{} = key, %Value{} = value}, {:ok, acc} ->
+          # deduplicate attributes
+          acc =
+            Enum.reject(acc, fn
+              {key2, _value} ->
+                key2.value == key.value
 
-      %Value{} = value, acc ->
-        [value | acc]
-    end)
-    |> Enum.reverse()
+              _ ->
+                false
+            end)
+
+          {:cont, {:ok, [{key, value} | acc]}}
+
+        %Value{} = value, {:ok, acc} ->
+          {:cont, {:ok, [value | acc]}}
+      end)
+
+    case result do
+      {:ok, acc} ->
+        {:ok, Enum.reverse(acc)}
+
+      {:error, _} = err ->
+        err
+    end
   end
 
-  defp unfold_leading_tokens(tokens, remaining \\ 1)
+  defp unfold_leading_tokens(tokens, count \\ 0, remaining \\ 1)
 
-  defp unfold_leading_tokens([r_space_token() | tokens], remaining) do
-    unfold_leading_tokens(tokens, remaining)
+  defp unfold_leading_tokens([r_space_token() | tokens], count, remaining) do
+    unfold_leading_tokens(tokens, count + 1, remaining)
   end
 
-  defp unfold_leading_tokens([r_newline_token() | tokens], remaining) when remaining > 0 do
-    unfold_leading_tokens(tokens, remaining - 1)
+  defp unfold_leading_tokens([r_comment_token(value: {:span, _}) | tokens], count, remaining) do
+    unfold_leading_tokens(tokens, count, remaining)
   end
 
-  defp unfold_leading_tokens([r_comment_token(), r_newline_token() | tokens], remaining) when remaining > 0 do
-    unfold_leading_tokens(tokens, remaining - 1)
+  defp unfold_leading_tokens([r_comment_token(value: {:multiline, _}) | tokens], count, remaining) do
+    unfold_leading_tokens(tokens, count, remaining)
   end
 
-  defp unfold_leading_tokens(tokens, 0) do
-    {:ok, tokens}
+  defp unfold_leading_tokens([r_newline_token() | tokens], count, remaining) when remaining > 0 do
+    unfold_leading_tokens(tokens, count, remaining - 1)
   end
 
-  defp unfold_leading_tokens(_tokens, _) do
+  defp unfold_leading_tokens([r_comment_token(), r_newline_token() | tokens], count, remaining) when remaining > 0 do
+    unfold_leading_tokens(tokens, count, remaining - 1)
+  end
+
+  defp unfold_leading_tokens(tokens, count, 0) do
+    {:ok, count, tokens}
+  end
+
+  defp unfold_leading_tokens(_tokens, _count, _remaining) do
     {:error, :invalid_unfold_sequence}
   end
 
-  defp trim_leading_space(tokens, remaining \\ 0)
+  defp trim_leading_space(tokens, spaces \\ 0, remaining \\ 0)
 
-  defp trim_leading_space([r_space_token() | tokens], remaining) do
-    trim_leading_space(tokens, remaining)
+  defp trim_leading_space([r_space_token() | tokens], spaces, remaining) do
+    trim_leading_space(tokens, spaces + 1, remaining)
   end
 
-  defp trim_leading_space([r_comment_token(value: {:c_multiline, _}) | tokens], remaining) when remaining > 0 do
-    trim_leading_space(tokens, remaining)
+  defp trim_leading_space([r_comment_token(value: {:span, _}) | tokens], spaces, remaining) do
+    trim_leading_space(tokens, spaces, remaining)
   end
 
-  defp trim_leading_space([r_newline_token() | tokens], remaining) when remaining > 0 do
-    trim_leading_space(tokens, remaining - 1)
+  defp trim_leading_space([r_comment_token(value: {:multiline, _}) | tokens], spaces, remaining) do
+    trim_leading_space(tokens, spaces, remaining)
   end
 
-  defp trim_leading_space([r_comment_token(value: {:c, _}), r_newline_token() | tokens], remaining) when remaining > 0 do
-    trim_leading_space(tokens, remaining - 1)
+  defp trim_leading_space([r_newline_token() | tokens], spaces, remaining) when remaining > 0 do
+    trim_leading_space(tokens, spaces, remaining - 1)
   end
 
-  defp trim_leading_space([r_fold_token() | tokens], remaining) do
-    trim_leading_space(tokens, remaining + 1)
+  defp trim_leading_space([r_comment_token(value: {:line, _}), r_newline_token() | tokens], spaces, remaining) when remaining > 0 do
+    trim_leading_space(tokens, spaces, remaining - 1)
   end
 
-  defp trim_leading_space(tokens, 0) do
-    tokens
+  defp trim_leading_space([r_fold_token() | tokens], spaces, remaining) do
+    trim_leading_space(tokens, spaces, remaining + 1)
+  end
+
+  defp trim_leading_space(tokens, spaces, 0) do
+    {spaces, tokens}
   end
 
   defp token_to_value(r_term_token(value: value)) do

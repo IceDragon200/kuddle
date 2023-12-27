@@ -72,13 +72,24 @@ defmodule Kuddle.V2.Utils do
     not is_utf8_scalar_char(c) or
     is_utf8_direction_control_char(c)
 
-  defguard is_utf8_non_identifier_char(c) when
-    c < 0x20 or
-    is_utf8_disallowed_char(c) or
-    is_utf8_space_like_char(c) or
-    is_utf8_newline_like_char(c) or
-    is_utf8_equals_like_char(c) or
-    is_utf8_bom_char(c) or
+  defguard is_utf8_bad_id_char(c) when
+    c in [
+      # These must be terminated on since they have special functions
+      # ?(,
+      # ?),
+      # ?;,
+      # ?{,
+      # ?},
+      # ?/,
+      # ?\\,
+      # But these are a hard error if they are present within the ID
+      ?[,
+      ?],
+      ?",
+      ?#,
+    ]
+
+  defguard is_utf8_special_char(c) when
     c in [
       ?(,
       ?),
@@ -92,6 +103,15 @@ defmodule Kuddle.V2.Utils do
       ?#,
       ?;,
     ]
+
+  defguard is_utf8_non_identifier_char(c) when
+    c < 0x20 or
+    is_utf8_disallowed_char(c) or
+    is_utf8_space_like_char(c) or
+    is_utf8_newline_like_char(c) or
+    is_utf8_equals_like_char(c) or
+    is_utf8_bom_char(c) or
+    is_utf8_special_char(c)
 
   @doc """
   Variant of list_to_utf8_binary, but specifically for handling multiline strings

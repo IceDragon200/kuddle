@@ -5,13 +5,15 @@ defmodule Kuddle.V2.DecoderTest do
   alias Kuddle.Value
   alias Kuddle.Node
 
-  describe "comments" do
-    test "can parse a single line content terminated immediately" do
+  describe "single line comments" do
+    test "can parse a single line comment terminated by EOF" do
       assert {:ok, [], []} = Decoder.decode("//")
     end
 
-    test "can parse a single line content terminated by newline" do
+    test "can parse a single line comment terminated by newline" do
       assert {:ok, [], []} = Decoder.decode("//\n")
+      assert {:ok, [], []} = Decoder.decode("//\r")
+      assert {:ok, [], []} = Decoder.decode("//\r\n")
     end
 
     test "can parse single line comment with node prior" do
@@ -24,7 +26,7 @@ defmodule Kuddle.V2.DecoderTest do
       """)
     end
 
-    test "can folded comments with single arg" do
+    test "can handle folded comments with single arg for node" do
       assert {:ok, [
         %Node{
           name: "node",
@@ -40,7 +42,7 @@ defmodule Kuddle.V2.DecoderTest do
       """)
     end
 
-    test "can folded comments with multiple args" do
+    test "can handle folded comments with multiple args" do
       assert {:ok, [
         %Node{
           name: "node",
@@ -57,9 +59,178 @@ defmodule Kuddle.V2.DecoderTest do
         arg2
       """)
     end
+
+  end
+
+  describe "span comments" do
+    test "can handle span comments" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: [],
+          attributes: [],
+          children: nil
+        },
+        %Node{
+          name: "node2",
+          annotations: [],
+          attributes: [],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      node /* Hello World */
+      /* Goodbye Universe */ node2
+      """)
+    end
+
+    test "can handle span comments within annotations" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: ["something"],
+          attributes: [],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      (/* Hello World */ something /* something else */)node
+      """)
+    end
+
+    test "can handle span comments around annotations" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: ["something"],
+          attributes: [],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      /* Hello World */(something)/* something else */node
+      """)
+    end
+
+    test "can handle span comments before property" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: [],
+          attributes: [
+            {
+              %Kuddle.Value{value: "prop", annotations: [], type: :id, format: :plain},
+              %Kuddle.Value{value: "value", annotations: [], type: :id, format: :plain},
+            }
+          ],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      node /* comment */prop=value
+      """)
+    end
+
+    test "can handle span comments within property" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: [],
+          attributes: [
+            {
+              %Kuddle.Value{value: "prop", annotations: [], type: :id, format: :plain},
+              %Kuddle.Value{value: "value", annotations: [], type: :id, format: :plain},
+            }
+          ],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      node prop/* comment */=/* comment 2 */value
+      """)
+    end
+
+    test "can handle span comments within property with annotations" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          annotations: ["something"],
+          attributes: [
+            {
+              %Kuddle.Value{value: "prop", annotations: [], type: :id, format: :plain},
+              %Kuddle.Value{value: "value", annotations: ["vtype"], type: :id, format: :plain},
+            }
+          ],
+          children: nil
+        },
+        %Node{
+          name: "node2",
+          annotations: ["something2"],
+          attributes: [
+            {
+              %Kuddle.Value{value: "prop2", annotations: [], type: :id, format: :plain},
+              %Kuddle.Value{value: "value2", annotations: ["vtype2"], type: :id, format: :plain},
+            }
+          ],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      (something)node prop/* comment */=/* comment 2 */(vtype)/* comment 3 */value
+      (something2)node2 prop2   /* comment A */   =    /* comment B */   (vtype2)  /* comment C */ value2
+      """)
+    end
   end
 
   describe "nodes" do
+    test "can parse nested nodes" do
+      assert {:ok, [
+        %Node{
+          name: "node1",
+          annotations: [],
+          attributes: [],
+          children: [
+            %Node{
+              name: "node2",
+              annotations: [],
+              attributes: [],
+              children: [
+                %Node{
+                  name: "node3",
+                  annotations: [],
+                  attributes: [],
+                  children: [
+                    %Node{
+                      name: "node4a",
+                      annotations: [],
+                      attributes: [],
+                      children: nil
+                    },
+                    %Node{
+                      name: "node4b",
+                      annotations: [],
+                      attributes: [],
+                      children: nil
+                    },
+                    %Node{
+                      name: "node4c",
+                      annotations: [],
+                      attributes: [],
+                      children: nil
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+      ], []} = Decoder.decode("""
+      node1 {
+        node2 {
+          node3 {
+            node4a
+            node4b
+            node4c
+          }
+        }
+      }
+      """)
+    end
+
     test "can parse annotated node" do
       assert {:ok, [
         %Node{
@@ -84,6 +255,25 @@ defmodule Kuddle.V2.DecoderTest do
       ], []} = Decoder.decode("""
       (   type     )     node
       """)
+    end
+
+    test "can gracefully handle unclosed node block" do
+      assert {:error, {:invalid_parse_state, _}} = Decoder.decode("""
+      node {
+      """)
+    end
+
+    test "can gracefully handle unclosed nested node block" do
+      assert {:error, {:invalid_parse_state, _}} = Decoder.decode("""
+      node {
+        node2 {
+
+      }
+      """)
+    end
+
+    test "can gracefully handle incomplete property" do
+      assert {:error, {:invalid_parse_state, _}} = Decoder.decode("node a=")
     end
   end
 
@@ -261,6 +451,32 @@ defmodule Kuddle.V2.DecoderTest do
       raw r#"
       This shouldn't parse
       "#
+      """)
+    end
+  end
+
+  describe "identifiers" do
+    test "will prevent use of reserved identifiers for nodes" do
+      assert {:error, {:invalid_identifier, _}} = Decoder.decode("true")
+      assert {:error, {:invalid_identifier, _}} = Decoder.decode("false")
+      assert {:error, {:invalid_identifier, _}} = Decoder.decode("null")
+    end
+
+    test "will prevent use of reserved identifiers for nested nodes" do
+      assert {:error, {:invalid_identifier, _}} = Decoder.decode("""
+      node {
+        true
+      }
+      """)
+      assert {:error, {:invalid_identifier, _}} = Decoder.decode("""
+      node {
+        false
+      }
+      """)
+      assert {:error, {:invalid_identifier, _}} = Decoder.decode("""
+      node {
+        null
+      }
       """)
     end
   end

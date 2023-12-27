@@ -80,29 +80,29 @@ defmodule Kuddle.V1.Tokenizer do
   end
 
   defp do_tokenize(<<"/*", rest::binary>>, :default, nil, doc, meta) do
-    do_tokenize(rest, {:comment, :c_multiline, 0}, [], doc, add_col(meta, 2))
+    do_tokenize(rest, {:comment, :multiline, 0}, [], doc, add_col(meta, 2))
   end
 
-  defp do_tokenize(<<"/*", rest::binary>>, {:comment, :c_multiline, depth}, acc, doc, meta) do
-    do_tokenize(rest, {:comment, :c_multiline, depth + 1}, ["/*" | acc], doc, add_col(meta, 2))
+  defp do_tokenize(<<"/*", rest::binary>>, {:comment, :multiline, depth}, acc, doc, meta) do
+    do_tokenize(rest, {:comment, :multiline, depth + 1}, ["/*" | acc], doc, add_col(meta, 2))
   end
 
-  defp do_tokenize(<<"*/", rest::binary>>, {:comment, :c_multiline, 0}, acc, doc, meta) do
+  defp do_tokenize(<<"*/", rest::binary>>, {:comment, :multiline, 0}, acc, doc, meta) do
     comment = IO.iodata_to_binary(Enum.reverse(acc))
     do_tokenize(
       rest,
       :default,
       nil,
-      [r_comment_token(value: {:c_multiline, comment}, meta: meta) | doc],
+      [r_comment_token(value: {:multiline, comment}, meta: meta) | doc],
       add_col(meta, 2)
     )
   end
 
-  defp do_tokenize(<<"*/", rest::binary>>, {:comment, :c_multiline, depth}, acc, doc, meta) do
-    do_tokenize(rest, {:comment, :c_multiline, depth - 1}, ["*/" | acc], doc, add_col(meta, 2))
+  defp do_tokenize(<<"*/", rest::binary>>, {:comment, :multiline, depth}, acc, doc, meta) do
+    do_tokenize(rest, {:comment, :multiline, depth - 1}, ["*/" | acc], doc, add_col(meta, 2))
   end
 
-  defp do_tokenize(<<c::utf8, rest::binary>>, {:comment, :c_multiline, _} = s, acc, doc, meta) do
+  defp do_tokenize(<<c::utf8, rest::binary>>, {:comment, :multiline, _} = s, acc, doc, meta) do
     do_tokenize(rest, s, [<<c::utf8>> | acc], doc, add_col(meta, byte_size(<<c::utf8>>)))
   end
 
@@ -120,7 +120,7 @@ defmodule Kuddle.V1.Tokenizer do
       rest,
       :default,
       nil,
-      [r_comment_token(value: {:c, comment}, meta: meta) | doc],
+      [r_comment_token(value: {:line, comment}, meta: meta) | doc],
       add_line(meta)
     )
   end

@@ -16,7 +16,7 @@ defmodule Kuddle.Tokens do
 
   @type slashdash_token :: {:slashdash, unused::any(), token_meta()}
 
-  @type comment_type :: :c | :c_multiline
+  @type comment_type :: :line | :span | :multiline
 
   @type comment_token :: {:comment, {comment_type(), String.t()}, token_meta()}
 

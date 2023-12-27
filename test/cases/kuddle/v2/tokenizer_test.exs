@@ -3,6 +3,55 @@ defmodule Kuddle.V2.TokenizerTest do
 
   alias Kuddle.V2.Tokenizer
 
+  describe "identifiers" do
+    test "can tokenize reserved identifiers" do
+      assert {:ok, [
+        {:term, "true", _},
+        {:nl, _, _},
+        {:term, "false", _},
+        {:nl, _, _},
+        {:term, "null", _},
+        {:nl, _, _},
+      ], ""}  = Tokenizer.tokenize("""
+      true
+      false
+      null
+      """)
+    end
+
+    test "can tokenize identifier with brackets interspersed" do
+      assert {:ok, [
+        {:term, "foo123", _},
+        {:open_block, _, _},
+        {:term, "bar", _},
+        {:close_block, _, _},
+        {:term, "foo", _},
+        {:nl, _, _},
+      ], ""} = Tokenizer.tokenize("""
+      foo123{bar}foo
+      """)
+    end
+
+    test "cannot tokenize identifier with round brackets" do
+      assert {:ok, [
+        {:term, "foo123", _},
+        {:open_annotation, _, _},
+        {:term, "bar", _},
+        {:close_annotation, _, _},
+        {:term, "foo", _},
+        {:nl, _, _},
+      ], ""} = Tokenizer.tokenize("""
+      foo123(bar)foo
+      """)
+    end
+
+    test "cannot tokenize identifier with square brackets" do
+      assert {:error, _} = Tokenizer.tokenize("""
+      foo123[bar]foo
+      """)
+    end
+  end
+
   describe "strings" do
     test "can handle single line strings" do
       assert {:ok, [
