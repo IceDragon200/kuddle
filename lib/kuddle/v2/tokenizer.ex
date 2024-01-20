@@ -153,7 +153,7 @@ defmodule Kuddle.V2.Tokenizer do
     doc,
     meta
   ) do
-    do_tokenize(rest, s, [c | acc], doc, add_col(meta, byte_size(<<c::utf8>>)))
+    do_tokenize(rest, s, [c | acc], doc, add_col(meta, utf8_char_byte_size(c)))
   end
 
   #
@@ -313,7 +313,7 @@ defmodule Kuddle.V2.Tokenizer do
       state,
       [c | acc],
       doc,
-      add_col(meta, byte_size(<<c::utf8>>))
+      add_col(meta, utf8_char_byte_size(c))
     )
   end
 
@@ -391,7 +391,7 @@ defmodule Kuddle.V2.Tokenizer do
       state,
       [c | acc],
       doc,
-      add_col(meta, byte_size(<<c::utf8>>))
+      add_col(meta, utf8_char_byte_size(c))
     )
   end
 
@@ -526,7 +526,7 @@ defmodule Kuddle.V2.Tokenizer do
     doc,
     meta
   ) when is_utf8_newline_like_char(c) do
-    do_tokenize(rest, state, [c | acc], doc, add_col(meta, byte_size(<<c::utf8>>)))
+    do_tokenize(rest, state, [c | acc], doc, add_col(meta, utf8_char_byte_size(c)))
   end
 
   defp do_tokenize(
@@ -561,7 +561,7 @@ defmodule Kuddle.V2.Tokenizer do
       state,
       [c | acc],
       doc,
-      add_col(meta, byte_size(<<c::utf8>>))
+      add_col(meta, utf8_char_byte_size(c))
     )
   end
 
@@ -665,7 +665,7 @@ defmodule Kuddle.V2.Tokenizer do
     doc,
     meta
   ) when is_utf8_scalar_char(c) and not is_utf8_non_identifier_char(c) do
-    do_tokenize(rest, {:term, meta}, [c], doc, add_col(meta, byte_size(<<c::utf8>>)))
+    do_tokenize(rest, {:term, meta}, [c], doc, add_col(meta, utf8_char_byte_size(c)))
   end
 
   defp do_tokenize(
@@ -707,7 +707,7 @@ defmodule Kuddle.V2.Tokenizer do
     doc,
     meta
   ) when is_utf8_scalar_char(c) do
-    do_tokenize(rest, state, [c | acc], doc, add_col(meta, byte_size(<<c::utf8>>)))
+    do_tokenize(rest, state, [c | acc], doc, add_col(meta, utf8_char_byte_size(c)))
   end
 
   defp parse_unicode_sequence(rest, meta, acc \\ [])
