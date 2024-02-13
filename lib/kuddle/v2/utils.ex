@@ -191,15 +191,21 @@ defmodule Kuddle.V2.Utils do
     end
   end
 
-  def dedent_multline_by_spaces([c | line], [c | spaces]) do
-    dedent_multline_by_spaces(line, spaces)
-  end
+  def dedent_multline_by_spaces(left, right, state \\ :start)
 
-  def dedent_multline_by_spaces(line, []) do
+  def dedent_multline_by_spaces([] = line, _, :start) do
     {:ok, line}
   end
 
-  def dedent_multline_by_spaces(_, _) do
+  def dedent_multline_by_spaces([c | line], [c | spaces], _) do
+    dedent_multline_by_spaces(line, spaces, :body)
+  end
+
+  def dedent_multline_by_spaces(line, [], _) do
+    {:ok, line}
+  end
+
+  def dedent_multline_by_spaces(_, _, _) do
     {:error, :incomplete_dedentation}
   end
 

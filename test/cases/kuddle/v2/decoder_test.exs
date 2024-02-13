@@ -371,6 +371,22 @@ defmodule Kuddle.V2.DecoderTest do
       """)
     end
 
+    test "can parse a multiline empty string (with additional empty lines)" do
+      assert {:ok, [
+        %Node{
+          name: "str",
+          attributes: [
+            %{type: :string, value: ""},
+          ],
+          children: nil
+        },
+      ], []} = Decoder.decode("""
+      str "
+
+          "
+      """)
+    end
+
     test "can parse a multiline string" do
       assert {:ok, [
         %Node{
