@@ -505,10 +505,34 @@ defmodule Kuddle.V2.DecoderTest do
           ],
           children: nil
         },
+        %Node{
+          name: "term-nan",
+          attributes: [
+            %{type: :nan, value: :nan},
+          ],
+          children: nil
+        },
+        %Node{
+          name: "term-inf",
+          attributes: [
+            %{type: :infinity, value: :infinity},
+          ],
+          children: nil
+        },
+        %Node{
+          name: "term--inf",
+          attributes: [
+            %{type: :infinity, value: :'-infinity'},
+          ],
+          children: nil
+        },
       ], []} = Decoder.decode("""
       bool-true #true
       bool-false #false
       term-null #null
+      term-nan #nan
+      term-inf #inf
+      term--inf #-inf
       """)
     end
 

@@ -659,6 +659,18 @@ defmodule Kuddle.V2.Decoder do
     {:ok, %Value{type: :null, value: nil}}
   end
 
+  defp decode_term("#inf") do
+    {:ok, %Value{type: :infinity, value: :infinity}}
+  end
+
+  defp decode_term("#-inf") do
+    {:ok, %Value{type: :infinity, value: :'-infinity'}}
+  end
+
+  defp decode_term("#nan") do
+    {:ok, %Value{type: :nan, value: :nan}}
+  end
+
   defp decode_term("#" <> rest) do
     {:ok, %Value{type: :keyword, value: rest}}
   end

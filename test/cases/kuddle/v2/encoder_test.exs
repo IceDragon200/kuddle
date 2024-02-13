@@ -5,6 +5,24 @@ defmodule Kuddle.V2.EncoderTest do
   alias Kuddle.V2.Decoder
 
   describe "annotations" do
+    test "will encode keywords" do
+      assert """
+      node #true
+      node #false
+      node #null
+      node #nan
+      node #inf
+      node #-inf
+      """ == cycle_encode("""
+      node #true
+      node #false
+      node #null
+      node #nan
+      node #inf
+      node #-inf
+      """)
+    end
+
     test "will encode node annotations" do
       assert """
       (type1)node

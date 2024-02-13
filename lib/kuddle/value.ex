@@ -20,6 +20,8 @@ defmodule Kuddle.Value do
                     | :float
                     | :boolean
                     | :string
+                    | :infinity
+                    | :nan
                     | :null
 
   @type t :: %__MODULE__{

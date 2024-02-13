@@ -138,8 +138,20 @@ defmodule Kuddle.V2.Encoder do
     {:ok, "#null"}
   end
 
+  defp encode_value_value(%Value{type: :nan, value: :nan}, _options) do
+    {:ok, "#nan"}
+  end
+
   defp encode_value_value(%Value{type: :boolean, value: value}, _options) when is_boolean(value) do
     {:ok, "#" <> Atom.to_string(value)}
+  end
+
+  defp encode_value_value(%Value{type: :infinity, value: :infinity}, _options) do
+    {:ok, "#inf"}
+  end
+
+  defp encode_value_value(%Value{type: :infinity, value: :'-infinity'}, _options) do
+    {:ok, "#-inf"}
   end
 
   defp encode_value_value(%Value{type: :keyword, value: value}, _options) when is_binary(value) do
@@ -154,7 +166,10 @@ defmodule Kuddle.V2.Encoder do
     encode_string(value, options)
   end
 
-  defp encode_value_value(%Value{type: :integer, value: value, format: format}, options) when is_integer(value) and value >= 0 do
+  defp encode_value_value(
+    %Value{type: :integer, value: value, format: format},
+    options
+  ) when is_integer(value) and value >= 0 do
     preferred_format = Keyword.get(options, :integer_format, format)
     case preferred_format do
       :bin ->
@@ -171,7 +186,10 @@ defmodule Kuddle.V2.Encoder do
     end
   end
 
-  defp encode_value_value(%Value{type: :integer, value: value, format: format}, options) when is_integer(value) and value < 0 do
+  defp encode_value_value(
+    %Value{type: :integer, value: value, format: format},
+    options
+  ) when is_integer(value) and value < 0 do
     preferred_format = Keyword.get(options, :integer_format, format)
     case preferred_format do
       :bin ->

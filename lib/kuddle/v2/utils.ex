@@ -348,12 +348,12 @@ defmodule Kuddle.V2.Utils do
   @spec valid_identifier?(String.t()) :: boolean()
   def valid_identifier?(str, state \\ :start)
 
-  def valid_identifier?(word, :start) when word in ["+", "-", "."] do
-    true
+  def valid_identifier?(word, :start) when word in ["true", "false", "null", "inf", "-inf", "nan"] do
+    false
   end
 
-  def valid_identifier?(word, :start) when word in ["true", "false", "null"] do
-    false
+  def valid_identifier?(word, :start) when word in ["+", "-", "."] do
+    true
   end
 
   def valid_identifier?(<<c::utf8, _rest::binary>>, _) when is_utf8_non_identifier_char(c) do
