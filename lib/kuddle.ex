@@ -2,12 +2,14 @@ defmodule Kuddle do
   @moduledoc """
   Kuddle is a KDL (https://github.com/kdl-org/kdl) encoder and decoder.
 
-  Kuddle is KDL 1.0.0 compliant and should be able to process most if not all KDL documents without
-  issue.
+  It is compliant with both the 1.x and 2.x specifications, simply use the appropriately versioned
+  module for your needs.
 
-  And yes UTF-8 works.
+  And yes UTF-8 still works.
+
+  V2 is the default.
   """
-  @type document :: Kuddle.Decoder.document()
+  @type document :: Kuddle.V2.Decoder.document()
 
   @doc """
   Decode a KDL document into kuddle nodes
@@ -20,7 +22,7 @@ defmodule Kuddle do
   @spec decode(String.t()) ::
           {:ok, document(), rest::String.t()}
           | {:error, term()}
-  defdelegate decode(blob), to: Kuddle.Decoder
+  defdelegate decode(blob), to: Kuddle.V2.Decoder
 
   @doc """
   Encode a kuddle document as serialized KDL
@@ -33,7 +35,7 @@ defmodule Kuddle do
   @spec encode(document()) ::
           {:ok, String.t()}
           | {:error, term()}
-  defdelegate encode(doc), to: Kuddle.Encoder
+  defdelegate encode(doc), to: Kuddle.V2.Encoder
 
   @doc """
   Select allows searching a document for particular nodes by name, and or attributes.
