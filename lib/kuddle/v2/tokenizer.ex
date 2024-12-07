@@ -177,10 +177,10 @@ defmodule Kuddle.V2.Tokenizer do
   end
 
   #
-  # Double-Quoted String
+  # Multiline String
   #
   defp do_tokenize(
-    <<"\"", c1::utf8, c2::utf8, rest::binary>>,
+    <<"\"\"\"", c1::utf8, c2::utf8, rest::binary>>,
     :default,
     nil,
     doc,
@@ -190,7 +190,7 @@ defmodule Kuddle.V2.Tokenizer do
   end
 
   defp do_tokenize(
-    <<"\"", c::utf8, rest::binary>>,
+    <<"\"\"\"", c::utf8, rest::binary>>,
     :default,
     nil,
     doc,
@@ -199,6 +199,19 @@ defmodule Kuddle.V2.Tokenizer do
     do_tokenize(rest, {:dquote_string, :ml}, [], doc, add_col(meta))
   end
 
+  defp do_tokenize(
+    <<"\"\"\"", _rest::binary>>,
+    :default,
+    nil,
+    _doc,
+    _meta
+  ) do
+    {:error, {:invalid_multline_string, reason: :missing_newline}}
+  end
+
+  #
+  # Double-Quoted String
+  #
   defp do_tokenize(<<"\"", rest::binary>>, :default, nil, doc, meta) do
     do_tokenize(rest, {:dquote_string, :s}, [], doc, add_col(meta))
   end
@@ -207,18 +220,7 @@ defmodule Kuddle.V2.Tokenizer do
     {:error, {:unterminated_dquote_string, list_to_utf8_binary(Enum.reverse(acc))}}
   end
 
-  defp do_tokenize(<<"\"", rest::binary>>, {:dquote_string, :s} = _state, acc, doc, meta) do
-    string = list_to_utf8_binary(Enum.reverse(acc))
-    do_tokenize(
-      rest,
-      :default,
-      nil,
-      [r_dquote_string_token(value: string, meta: meta) | doc],
-      add_col(meta)
-    )
-  end
-
-  defp do_tokenize(<<"\"", rest::binary>>, {:dquote_string, :ml} = _state, acc, doc, meta) do
+  defp do_tokenize(<<"\"\"\"", rest::binary>>, {:dquote_string, :ml} = _state, acc, doc, meta) do
     acc = Enum.reverse(acc)
     case multiline_list_to_utf8_binary(acc) do
       {:ok, string} when is_binary(string) ->
@@ -233,6 +235,17 @@ defmodule Kuddle.V2.Tokenizer do
       {:error, reason} ->
         {:error, {:invalid_multline_string, reason: reason}}
     end
+  end
+
+  defp do_tokenize(<<"\"", rest::binary>>, {:dquote_string, :s} = _state, acc, doc, meta) do
+    string = list_to_utf8_binary(Enum.reverse(acc))
+    do_tokenize(
+      rest,
+      :default,
+      nil,
+      [r_dquote_string_token(value: string, meta: meta) | doc],
+      add_col(meta)
+    )
   end
 
   defp do_tokenize(<<"\\\"", rest::binary>>, {:dquote_string, _} = state, acc, doc, meta) do
@@ -370,7 +383,7 @@ defmodule Kuddle.V2.Tokenizer do
   end
 
   defp do_tokenize(
-    <<"\"", _rest::binary>> = rest,
+    <<"\\", _rest::binary>> = rest,
     {:dquote_string, _},
     _acc,
     _doc,
@@ -401,46 +414,46 @@ defmodule Kuddle.V2.Tokenizer do
   defp do_tokenize(<<"#", rest::binary>>, :default, nil, doc, org_meta) do
     len = byte_size(rest)
     meta = add_col(org_meta, 1)
-    case rest do
-      <<"#", _rest::binary>> ->
-        rest = String.trim_leading(rest, "#")
-        hash_count = len - byte_size(rest) + 1
-        # `"` + `#`(N)
-        meta = add_col(meta, 1 + hash_count)
-        terminator = "\"" <> String.duplicate("#", hash_count)
-        case rest do
-          <<"\"", c1::utf8, c2::utf8, rest::binary>> when is_utf8_twochar_newline(c1, c2) ->
-            meta = add_col(meta, 2)
-            do_tokenize(rest, {:raw_string, :ml, terminator}, [], doc, meta)
+    action =
+      case rest do
+        <<"#", _rest::binary>> ->
+          rest = String.trim_leading(rest, "#")
+          hash_count = len - byte_size(rest) + 1
+          meta = add_col(meta, hash_count)
+          terminator = String.duplicate("#", hash_count)
+          {:raw_string, terminator, rest, meta}
 
-          <<"\"", c::utf8, rest::binary>> when is_utf8_newline_like_char(c) ->
+        <<"\"", _rest::binary>> = rest ->
+          terminator = "#"
+          {:raw_string, terminator, rest, meta}
+
+        _ ->
+          # special case for handling keywords
+          :term
+      end
+
+    case action do
+      {:raw_string, terminator, rest, meta} ->
+        case rest do
+          <<"\"\"\"", c1::utf8, c2::utf8, rest::binary>> when is_utf8_twochar_newline(c1, c2) ->
+            meta = add_col(meta, 2)
+            do_tokenize(rest, {:raw_string, :ml, "\"\"\"" <> terminator}, [], doc, meta)
+
+          <<"\"\"\"", c::utf8, rest::binary>> when is_utf8_newline_like_char(c) ->
             meta = add_col(meta, 1)
-            do_tokenize(rest, {:raw_string, :ml, terminator}, [], doc, meta)
+            do_tokenize(rest, {:raw_string, :ml, "\"\"\"" <> terminator}, [], doc, meta)
+
+          <<"\"\"\"", _rest::binary>> ->
+            {:error, :invalid_multline_raw_string}
 
           <<"\"", rest::binary>> ->
-            do_tokenize(rest, {:raw_string, :s, terminator}, [], doc, meta)
+            do_tokenize(rest, {:raw_string, :s, "\"" <> terminator}, [], doc, meta)
 
           _ ->
             {:error, :invalid_raw_string}
         end
 
-      <<"\"", rest::binary>> ->
-        meta = add_col(meta, 1)
-        terminator = "\"#"
-        case rest do
-          <<c1::utf8, c2::utf8, rest::binary>> when is_utf8_twochar_newline(c1, c2) ->
-            meta = add_col(meta, 2)
-            do_tokenize(rest, {:raw_string, :ml, terminator}, [], doc, meta)
-
-          <<c::utf8, rest::binary>> when is_utf8_newline_like_char(c) ->
-            meta = add_col(meta, 1)
-            do_tokenize(rest, {:raw_string, :ml, terminator}, [], doc, meta)
-
-          rest ->
-            do_tokenize(rest, {:raw_string, :s, terminator}, [], doc, meta)
-        end
-
-      _ ->
+      :term ->
         # special case for handling keywords
         do_tokenize(rest, {:term, org_meta}, ["#"], doc, org_meta)
     end
@@ -468,7 +481,7 @@ defmodule Kuddle.V2.Tokenizer do
   end
 
   defp do_tokenize(
-    <<"\"", rest::binary>> = str,
+    <<"\"\"\"", rest::binary>> = str,
     {:raw_string, :ml, terminator} = state,
     acc,
     doc,

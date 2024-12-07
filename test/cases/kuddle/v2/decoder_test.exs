@@ -298,7 +298,7 @@ defmodule Kuddle.V2.DecoderTest do
           name: "str",
           attributes: [
             %Value{
-              type: :id,
+              type: :string,
               value: "Hello",
               annotations: ["type"],
             },
@@ -307,7 +307,7 @@ defmodule Kuddle.V2.DecoderTest do
           children: nil
         }
       ], []} = Decoder.decode("""
-      str (type)Hello
+      str (type)"Hello"
       """)
     end
 
@@ -335,8 +335,8 @@ defmodule Kuddle.V2.DecoderTest do
           children: nil
         },
       ], []} = Decoder.decode("""
-      str "
-      "
+      str \"""
+      \"""
       """)
     end
 
@@ -350,8 +350,8 @@ defmodule Kuddle.V2.DecoderTest do
           children: nil
         },
       ], []} = Decoder.decode("""
-      str "
-          "
+      str \"""
+          \"""
       """)
     end
 
@@ -365,9 +365,9 @@ defmodule Kuddle.V2.DecoderTest do
           children: nil
         },
       ], []} = Decoder.decode("""
-      str "
+      str \"""
 
-      "
+      \"""
       """)
     end
 
@@ -381,9 +381,9 @@ defmodule Kuddle.V2.DecoderTest do
           children: nil
         },
       ], []} = Decoder.decode("""
-      str "
+      str \"""
 
-          "
+          \"""
       """)
     end
 
@@ -397,18 +397,22 @@ defmodule Kuddle.V2.DecoderTest do
           children: nil
         },
       ], []} = Decoder.decode("""
-      str "
+      str \"""
       This string has:
       * multiple
       * cool
       * lines
-      "
+      \"""
       """)
     end
 
-    test "can error on a unterminated string" do
+    test "can error on an unterminated single-line string" do
+      assert {:error, {:unterminated_dquote_string, _}} = Decoder.decode("str \"")
+    end
+
+    test "can error on an unterminated multiline string" do
       assert {:error, {:unterminated_dquote_string, _}} = Decoder.decode("""
-      str "
+      str \"""
       """)
     end
   end
@@ -452,21 +456,21 @@ defmodule Kuddle.V2.DecoderTest do
           children: nil
         },
       ], []} = Decoder.decode("""
-      raw #"
+      raw #\"""
         Line 1
           Line 2
             Line 3
           Line 4
         Line 5
-        "#
+        \"""#
       """)
     end
 
     test "v1 raw strings should return an error" do
       assert {:error, {:invalid_identifier, _}} = Decoder.decode("""
-      raw r#"
+      raw r#\"""
       This shouldn't parse
-      "#
+      \"""#
       """)
     end
   end

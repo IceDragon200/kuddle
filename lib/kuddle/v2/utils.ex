@@ -63,9 +63,6 @@ defmodule Kuddle.V2.Utils do
 
   defguard is_utf8_equals_like_char(c) when c in [
     ?=,
-    0xFE66,
-    0xFF1D,
-    0x1F7F0,
   ]
 
   defguard is_utf8_disallowed_char(c) when

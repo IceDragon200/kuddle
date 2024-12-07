@@ -38,7 +38,7 @@ defmodule Kuddle.Tokens do
 
   defrecord :r_token_meta, :meta, [line_no: 1, col_no: 1]
 
-  # v1 Token - V1 uses asingle annotation token type, v2 uses this after extracting the tokens
+  # v1 Token - V1 uses a single annotation token type, v2 uses this after extracting the tokens
   # in the parsing step
   defrecord :r_annotation_token, :annotation, [:value, :meta]
 

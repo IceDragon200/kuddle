@@ -88,26 +88,86 @@ defmodule Kuddle.V2.TokenizerTest do
         {:dquote_string, "Should have no indent", _},
         {:nl, _, _},
       ], ""} = Tokenizer.tokenize("""
-      str "
-      "
-      str "
+      str \"""
+      \"""
+      str \"""
       \\n
-      "
-      str "
+      \"""
+      str \"""
         Two-spaces
-      "
-      str "
+      \"""
+      str \"""
         Should have no indent
-        "
+        \"""
       """)
     end
 
     test "will error given a string with a insufficient indent" do
       assert {:error, {:invalid_multline_string, reason: {:incomplete_dedentation, line: ~c"Outdentation"}}} =
         Tokenizer.tokenize("""
-        str "
+        str \"""
         Outdentation
-            "
+            \"""
+        """)
+    end
+  end
+
+  describe "raw strings" do
+    test "can handle single line raw strings" do
+      assert {:ok, [
+        {:term, "str", _},
+        {:space, _, _},
+        {:raw_string, "", _},
+        {:nl, _, _},
+        {:term, "str", _},
+        {:space, _, _},
+        {:raw_string, "\\n", _},
+        {:nl, _, _},
+      ], ""} = Tokenizer.tokenize("""
+      str #""#
+      str #"\\n"#
+      """)
+    end
+
+    test "can handle multiline strings" do
+      assert {:ok, [
+        {:term, "str", _},
+        {:space, _, _},
+        {:raw_string, "", _},
+        {:nl, _, _},
+        {:term, "str", _},
+        {:space, _, _},
+        {:raw_string, "\\n", _},
+        {:nl, _, _},
+        {:term, "str", _},
+        {:space, _, _},
+        {:raw_string, "  Two-spaces", _},
+        {:nl, _, _},
+        {:term, "str", _},
+        {:space, _, _},
+        {:raw_string, "Should have no indent", _},
+        {:nl, _, _},
+      ], ""} = Tokenizer.tokenize("""
+      str #\"""
+      \"""#
+      str #\"""
+      \\n
+      \"""#
+      str #\"""
+        Two-spaces
+      \"""#
+      str #\"""
+        Should have no indent
+        \"""#
+      """)
+    end
+
+    test "will error given a raw string with a insufficient indent" do
+      assert {:error, {:invalid_multline_raw_string, reason: {:incomplete_dedentation, line: ~c"Outdentation"}}} =
+        Tokenizer.tokenize("""
+        str #\"""
+        Outdentation
+            \"""#
         """)
     end
   end
@@ -173,13 +233,14 @@ defmodule Kuddle.V2.TokenizerTest do
       ], ""} = Tokenizer.tokenize("=")
     end
 
-    test "correctly handles utf8 equals" do
+    test "handles utf8 \"equals\" as terms" do
+      # draft.5 change, these are now terms again
       assert {:ok, [
-        {:=, _, _},
+        {:term, "\u{FE66}", _},
         {:space, _, _},
-        {:=, _, _},
+        {:term, "\u{FF1D}", _},
         {:space, _, _},
-        {:=, _, _},
+        {:term, "\u{1F7F0}", _},
         {:nl, _, _},
       ], ""} = Tokenizer.tokenize("""
       \u{FE66} \u{FF1D} \u{1F7F0}
