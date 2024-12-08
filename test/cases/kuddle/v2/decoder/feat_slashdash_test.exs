@@ -45,7 +45,7 @@ defmodule Kuddle.V2.Decoder.FeatSlashdashTest do
       """)
     end
 
-    test "slashdash can exclude children" do
+    test "slashdash can exclude children block" do
       assert {:ok, [
         %Node{
           name: "node",
@@ -72,6 +72,26 @@ defmodule Kuddle.V2.Decoder.FeatSlashdashTest do
       }
       node2 {
         node5
+      }
+      """)
+    end
+
+    test "slashdash can exclude children blocks" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          attributes: [
+          ],
+          children: [
+            %Node{name: "nodeY"},
+          ]
+        },
+      ], []} = Decoder.decode("""
+      node /- {
+        nodeX
+      } \
+      {
+        nodeY
       }
       """)
     end

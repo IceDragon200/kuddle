@@ -88,8 +88,8 @@ defmodule Kuddle.V2.Decoder do
 
   defp parse([r_slashdash_token() | tokens], {:default, _} = state, acc, doc) do
     # add the slashdash to the document accumulator
-    # when the next parse is done, the slashdash will cause the next item in the accumulator to
-    # be dropped
+    # when the next parse is done, the slashdash will cause the next
+    # component item in the accumulator to be dropped
     parse(tokens, state, acc, [:slashdash | doc])
   end
 
@@ -151,6 +151,27 @@ defmodule Kuddle.V2.Decoder do
   end
 
   #
+  # Raw Block - this will be treated as an error if it remains in the document after being pruned
+  #
+  defp parse(
+    [r_open_block_token() | tokens],
+    {:default, depth},
+    acc,
+    doc
+  ) do
+    case parse(tokens, {:default, depth + 1}, [], []) do
+      {:ok, children, tokens} ->
+        case trim_leading_space(tokens) do
+          {_, [r_close_block_token() | tokens]} ->
+            parse(tokens, {:default, depth}, acc, [{:raw_block, children} | doc])
+        end
+
+      {:error, _} = err ->
+        err
+    end
+  end
+
+  #
   # Annotation
   #
   defp parse([], {:annotation, _depth} = state, [], doc) do
@@ -187,8 +208,22 @@ defmodule Kuddle.V2.Decoder do
   #
   # Node
   #
-  defp parse([r_slashdash_token() | tokens], {:node, _, _} = state, {name, annotations, attrs}, doc) do
-    parse(tokens, state, {name, annotations, [:slashdash | attrs]}, doc)
+  defp parse(
+    [r_slashdash_token() | tokens],
+    {:node, _depth, _node_spaces} = state,
+    {name, annotations, attrs},
+    doc
+  ) do
+    # slashdash needs to behave like an unfold where it consumes as many spaces as it can
+    case trim_leading_space_for_slashdash(tokens) do
+      {_, tokens} ->
+        parse(
+          tokens,
+          state,
+          {name, annotations, [:slashdash | attrs]},
+          doc
+        )
+    end
   end
 
   defp parse([r_comment_token() | tokens], {:node, _, _} = state, acc, doc) do
@@ -275,45 +310,27 @@ defmodule Kuddle.V2.Decoder do
       {:ok, children, tokens} ->
         case trim_leading_space(tokens) do
           {_, [r_close_block_token() | tokens]} ->
-            result =
-              case attrs do
-                [:slashdash | attrs] ->
-                  # discard the children
-                  case resolve_node_attributes(attrs) do
-                    {:ok, attrs} ->
-                      {:ok, %Node{
-                        name: name,
-                        annotations: node_annotations,
-                        attributes: attrs,
-                        children: nil,
-                      }}
+            case attrs do
+              [:slashdash | attrs] ->
+                # discard the children, and remain in the parsing state as if we never saw an
+                # open block
+                parse(tokens, state, {name, node_annotations, attrs}, doc)
 
-                    {:error, _} = err ->
-                      err
-                  end
+              attrs when is_list(attrs) ->
+                case resolve_node_attributes(attrs) do
+                  {:ok, attrs} ->
+                    node = %Node{
+                      name: name,
+                      annotations: node_annotations,
+                      attributes: attrs,
+                      children: children,
+                    }
+                    parse(tokens, {:default, depth}, [], [node | doc])
 
-                attrs ->
-                  case resolve_node_attributes(attrs) do
-                    {:ok, attrs} ->
-                      {:ok, %Node{
-                        name: name,
-                        annotations: node_annotations,
-                        attributes: attrs,
-                        children: children,
-                      }}
-
-                    {:error, _} = err ->
-                      err
-                  end
-              end
-
-            case result do
-              {:ok, node} ->
-                parse(tokens, {:default, depth}, [], [node | doc])
-
-              {:error, reason} ->
-                res = [state: state, reason: reason, document: doc]
-                {:error, {:invalid_node_attributes, res}}
+                  {:error, reason} ->
+                    res = [state: state, reason: reason, document: doc]
+                    {:error, {:invalid_node_attributes, res}}
+                end
             end
         end
 
@@ -533,34 +550,47 @@ defmodule Kuddle.V2.Decoder do
   defp handle_parse_exit(rest, doc) do
     doc = Enum.reverse(doc)
 
-    {:ok, handle_slashdashes(doc, []), rest}
+    case handle_slashdashes_and_validate(doc, []) do
+      {:ok, doc} ->
+        {:ok, doc, rest}
+
+      {:error, _reason} = res ->
+        res
+    end
   end
 
   defp resolve_node_attributes(acc) when is_list(acc) do
     result =
       acc
       |> Enum.reverse()
-      |> handle_slashdashes([])
-      |> Enum.reduce_while({:ok, []}, fn
-        r_annotation_token() = token, _acc ->
-          {:halt, {:error, {:unresolved_annotation, token}}}
+      |> handle_slashdashes_and_validate([])
+      |> case do
+        {:ok, doc} ->
+          doc
+          |> Enum.reduce_while({:ok, []}, fn
+            r_annotation_token() = token, _acc ->
+              {:halt, {:error, {:unresolved_annotation, token}}}
 
-        {%Value{} = key, %Value{} = value}, {:ok, acc} ->
-          # deduplicate attributes
-          acc =
-            Enum.reject(acc, fn
-              {key2, _value} ->
-                key2.value == key.value
+            {%Value{} = key, %Value{} = value}, {:ok, acc} ->
+              # deduplicate attributes
+              acc =
+                Enum.reject(acc, fn
+                  {key2, _value} ->
+                    key2.value == key.value
 
-              _ ->
-                false
-            end)
+                  _ ->
+                    false
+                end)
 
-          {:cont, {:ok, [{key, value} | acc]}}
+              {:cont, {:ok, [{key, value} | acc]}}
 
-        %Value{} = value, {:ok, acc} ->
-          {:cont, {:ok, [value | acc]}}
-      end)
+            %Value{} = value, {:ok, acc} ->
+              {:cont, {:ok, [value | acc]}}
+          end)
+
+        {:error, _} = err ->
+          err
+      end
 
     case result do
       {:ok, acc} ->
@@ -628,6 +658,36 @@ defmodule Kuddle.V2.Decoder do
   end
 
   defp trim_leading_space(tokens, spaces, 0) do
+    {spaces, tokens}
+  end
+
+  defp trim_leading_space_for_slashdash(tokens, spaces \\ 0)
+
+  defp trim_leading_space_for_slashdash([r_space_token() | tokens], spaces) do
+    trim_leading_space_for_slashdash(tokens, spaces + 1)
+  end
+
+  defp trim_leading_space_for_slashdash([r_comment_token(value: {:span, _}) | tokens], spaces) do
+    trim_leading_space_for_slashdash(tokens, spaces)
+  end
+
+  defp trim_leading_space_for_slashdash([r_comment_token(value: {:multiline, _}) | tokens], spaces) do
+    trim_leading_space_for_slashdash(tokens, spaces)
+  end
+
+  defp trim_leading_space_for_slashdash([r_newline_token() | tokens], spaces) do
+    trim_leading_space_for_slashdash(tokens, spaces + 1)
+  end
+
+  defp trim_leading_space_for_slashdash([r_comment_token(value: {:line, _}), r_newline_token() | tokens], spaces) do
+    trim_leading_space_for_slashdash(tokens, spaces + 1)
+  end
+
+  defp trim_leading_space_for_slashdash([r_fold_token() | tokens], spaces) do
+    trim_leading_space_for_slashdash(tokens, spaces + 1)
+  end
+
+  defp trim_leading_space_for_slashdash(tokens, spaces) do
     {spaces, tokens}
   end
 
@@ -899,19 +959,23 @@ defmodule Kuddle.V2.Decoder do
     end
   end
 
-  defp handle_slashdashes([:slashdash, _term | tokens], acc) do
-    handle_slashdashes(tokens, acc)
+  defp handle_slashdashes_and_validate([:slashdash, _term | tokens], acc) do
+    handle_slashdashes_and_validate(tokens, acc)
   end
 
-  defp handle_slashdashes([:slashdash], acc) do
-    handle_slashdashes([], acc)
+  defp handle_slashdashes_and_validate([:slashdash], acc) do
+    handle_slashdashes_and_validate([], acc)
   end
 
-  defp handle_slashdashes([term | tokens], acc) do
-    handle_slashdashes(tokens, [term | acc])
+  defp handle_slashdashes_and_validate([{:raw_block, _} | _tokens], _acc) do
+    {:error, :raw_block_in_document}
   end
 
-  defp handle_slashdashes([], acc) do
-    Enum.reverse(acc)
+  defp handle_slashdashes_and_validate([term | tokens], acc) do
+    handle_slashdashes_and_validate(tokens, [term | acc])
+  end
+
+  defp handle_slashdashes_and_validate([], acc) do
+    {:ok, Enum.reverse(acc)}
   end
 end

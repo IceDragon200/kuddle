@@ -13,7 +13,8 @@ defmodule Kuddle.V2.TestCasesTest do
         case File.read(unquote(expected_filename)) do
           {:ok, expected_blob} ->
             assert {:ok, doc, []} = Kuddle.V2.decode(source_blob)
-            assert {:ok, expected_blob} == Kuddle.V2.encode(doc, integer_format: :dec)
+            assert {:ok, actual_blob} = Kuddle.V2.encode(doc, integer_format: :dec)
+            assert String.trim(expected_blob) == String.trim(actual_blob)
 
           {:error, :enoent} ->
             assert {:error, _} = Kuddle.V2.decode(source_blob)

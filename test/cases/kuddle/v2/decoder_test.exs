@@ -176,6 +176,16 @@ defmodule Kuddle.V2.DecoderTest do
     end
   end
 
+  describe "raw blocks" do
+    test "should be an error if left in the document tree" do
+      assert {:error, :raw_block_in_document} = Decoder.decode("""
+      {
+        node "This is an error"
+      }
+      """)
+    end
+  end
+
   describe "nodes" do
     test "can parse nested nodes" do
       assert {:ok, [

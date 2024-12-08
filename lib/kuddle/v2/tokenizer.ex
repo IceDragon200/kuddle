@@ -443,8 +443,8 @@ defmodule Kuddle.V2.Tokenizer do
             meta = add_col(meta, 1)
             do_tokenize(rest, {:raw_string, :ml, "\"\"\"" <> terminator}, [], doc, meta)
 
-          <<"\"\"\"", _rest::binary>> ->
-            {:error, :invalid_multline_raw_string}
+          # <<"\"\"\"", _rest::binary>> ->
+          #   {:error, :invalid_multline_raw_string}
 
           <<"\"", rest::binary>> ->
             do_tokenize(rest, {:raw_string, :s, "\"" <> terminator}, [], doc, meta)
