@@ -62,4 +62,18 @@ defmodule Kuddle.Utils do
     end)
     |> IO.iodata_to_binary()
   end
+
+  def trim_leading_and_count(rest, pattern) do
+    do_trim_leading_and_count(rest, byte_size(pattern), pattern, 0)
+  end
+
+  defp do_trim_leading_and_count(rest, pat_size, pattern, count) do
+    case rest do
+      <<^pattern::binary-size(pat_size), rest::binary>> ->
+        do_trim_leading_and_count(rest, pat_size, pattern, count + 1)
+
+      _ ->
+        {rest, count, String.duplicate(pattern, count)}
+    end
+  end
 end

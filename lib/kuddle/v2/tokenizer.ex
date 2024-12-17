@@ -412,16 +412,13 @@ defmodule Kuddle.V2.Tokenizer do
   # Raw String & Keyword handling
   #
   defp do_tokenize(<<"#", rest::binary>>, :default, nil, doc, org_meta) do
-    len = byte_size(rest)
     meta = add_col(org_meta, 1)
     action =
       case rest do
-        <<"#", _rest::binary>> ->
-          rest = String.trim_leading(rest, "#")
-          hash_count = len - byte_size(rest) + 1
+        <<"#", _rest::binary>> = rest ->
+          {rest, hash_count, terminator} = trim_leading_and_count(rest, "#")
           meta = add_col(meta, hash_count)
-          terminator = String.duplicate("#", hash_count)
-          {:raw_string, terminator, rest, meta}
+          {:raw_string, terminator <> "#", rest, meta}
 
         <<"\"", _rest::binary>> = rest ->
           terminator = "#"
@@ -443,8 +440,8 @@ defmodule Kuddle.V2.Tokenizer do
             meta = add_col(meta, 1)
             do_tokenize(rest, {:raw_string, :ml, "\"\"\"" <> terminator}, [], doc, meta)
 
-          # <<"\"\"\"", _rest::binary>> ->
-          #   {:error, :invalid_multline_raw_string}
+          <<"\"\"\"", _rest::binary>> ->
+            {:error, :invalid_multline_raw_string}
 
           <<"\"", rest::binary>> ->
             do_tokenize(rest, {:raw_string, :s, "\"" <> terminator}, [], doc, meta)
@@ -505,7 +502,7 @@ defmodule Kuddle.V2.Tokenizer do
           {:error, {:invalid_multline_raw_string, reason: reason}}
       end
     else
-      do_tokenize(rest, state, ["\"" | acc], doc, add_col(meta))
+      do_tokenize(rest, state, ["\"\"\"" | acc], doc, add_col(meta))
     end
   end
 

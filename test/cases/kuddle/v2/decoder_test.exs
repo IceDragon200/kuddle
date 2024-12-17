@@ -59,7 +59,6 @@ defmodule Kuddle.V2.DecoderTest do
         arg2
       """)
     end
-
   end
 
   describe "span comments" do
@@ -473,6 +472,24 @@ defmodule Kuddle.V2.DecoderTest do
           Line 4
         Line 5
         \"""#
+      """)
+    end
+
+    test "can handle a raw string with multiline-string embedded" do
+      assert {:ok, [
+        %Node{
+          name: "node",
+          attributes: [
+            %{type: :string, value: "\"\"\"triple-quote\"\"\"\n##\"too few quotes\"##\n#\"\"\"too few #\"\"\"#"}
+          ],
+          children: nil
+        }
+      ], []} = Decoder.decode("""
+      node ##\"""
+      \"""triple-quote\"""
+      ##"too few quotes"##
+      #\"""too few #\"""#
+      \"""##
       """)
     end
 

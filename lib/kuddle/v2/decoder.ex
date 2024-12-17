@@ -627,6 +627,10 @@ defmodule Kuddle.V2.Decoder do
     {:ok, count, tokens}
   end
 
+  defp unfold_leading_tokens([] = tokens, count, _remaining) do
+    {:ok, count, tokens}
+  end
+
   defp unfold_leading_tokens(_tokens, _count, _remaining) do
     {:error, :invalid_unfold_sequence}
   end

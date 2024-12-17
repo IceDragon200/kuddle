@@ -162,6 +162,19 @@ defmodule Kuddle.V2.TokenizerTest do
       """)
     end
 
+    test "can tokenize a raw string with embedded multi-line quotes" do
+      assert {:ok, [
+        {:raw_string, "\"\"\"triple-quote\"\"\"\n##\"too few quotes\"##\n#\"\"\"too few #\"\"\"#", _},
+        {:nl, _, _},
+      ], ""} = Tokenizer.tokenize("""
+      ##\"""
+      \"""triple-quote\"""
+      ##"too few quotes"##
+      #\"""too few #\"""#
+      \"""##
+      """)
+    end
+
     test "will error given a raw string with a insufficient indent" do
       assert {:error, {:invalid_multline_raw_string, reason: {:incomplete_dedentation, line: ~c"Outdentation"}}} =
         Tokenizer.tokenize("""
