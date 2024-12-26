@@ -9,17 +9,21 @@ defmodule Kuddle.V2.TestCasesTest do
       @describetag test_case: Path.basename(basename, ".kdl")
 
       test "encode/decode" do
-        assert {:ok, source_blob} = File.read(unquote(filename))
-        case File.read(unquote(expected_filename)) do
-          {:ok, expected_blob} ->
-            assert {:ok, doc, []} = Kuddle.V2.decode(source_blob)
-            assert {:ok, actual_blob} = Kuddle.V2.encode(doc, integer_format: :dec)
-            assert String.trim(expected_blob) == String.trim(actual_blob)
-
-          {:error, :enoent} ->
-            assert {:error, _} = Kuddle.V2.decode(source_blob)
-        end
+        run_test_files(unquote(filename), unquote(expected_filename))
       end
+    end
+  end
+
+  defp run_test_files(source_filename, expected_filename) do
+    assert {:ok, source_blob} = File.read(source_filename)
+    case File.read(expected_filename) do
+      {:ok, expected_blob} ->
+        assert {:ok, doc, []} = Kuddle.V2.decode(source_blob)
+        assert {:ok, actual_blob} = Kuddle.V2.encode(doc, integer_format: :dec)
+        assert String.trim(expected_blob) == String.trim(actual_blob)
+
+      {:error, :enoent} ->
+        assert {:error, _} = Kuddle.V2.decode(source_blob)
     end
   end
 end

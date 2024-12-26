@@ -177,7 +177,7 @@ defmodule Kuddle.V2.DecoderTest do
 
   describe "raw blocks" do
     test "should be an error if left in the document tree" do
-      assert {:error, :raw_block_in_document} = Decoder.decode("""
+      assert {:error, {:unresolved_exit_state, :raw_block_in_document}} = Decoder.decode("""
       {
         node "This is an error"
       }
@@ -266,6 +266,16 @@ defmodule Kuddle.V2.DecoderTest do
       """)
     end
 
+    test "can gracefully handle slashdash before node closing bracket" do
+      # this is a copy of an actual KDL test to isolate it for kuddle parsing behaviour
+      assert {:error, {:unresolved_exit_state, :slashdash_nothing}} = Decoder.decode("""
+      node {
+        child1
+        /-
+      }
+      """)
+     end
+
     test "can gracefully handle unclosed node block" do
       assert {:error, {:invalid_parse_state, _}} = Decoder.decode("""
       node {
@@ -276,6 +286,23 @@ defmodule Kuddle.V2.DecoderTest do
       assert {:error, {:invalid_parse_state, _}} = Decoder.decode("""
       node {
         node2 {
+
+      }
+      """)
+
+      assert {:error, {:invalid_parse_state, _}} = Decoder.decode("""
+      node {
+        node2 {
+          node3 {
+        }
+      }
+      """)
+    end
+
+    test "can gracefully handle slashdash block with incorrect subchild" do
+      assert {:error, {:invalid_parse_state, _}} = Decoder.decode("""
+      node /- {
+      } other {
 
       }
       """)
@@ -333,7 +360,9 @@ defmodule Kuddle.V2.DecoderTest do
       str "\\"\\r\\n\\b\\f\\s\\t\\\\/\\         "
       """)
     end
+  end
 
+  describe "multiline string" do
     test "can parse a multiline empty string" do
       assert {:ok, [
         %Node{
