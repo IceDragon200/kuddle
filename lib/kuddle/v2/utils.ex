@@ -7,7 +7,6 @@ defmodule Kuddle.V2.Utils do
 
   defguard is_utf8_space_like_char(c) when c in [
     0x09,
-    0x0B,
     # Whitespace
     0x20,
     # No-Break Space
@@ -47,6 +46,8 @@ defmodule Kuddle.V2.Utils do
   defguard is_utf8_newline_like_char(c) when c in [
     # New Line
     0x0A,
+    # Vertical Tab
+    0x0B,
     # NP form feed, new pag
     0x0C,
     # Carriage Return
@@ -195,6 +196,14 @@ defmodule Kuddle.V2.Utils do
   end
 
   def dedent_multline_by_spaces([c | line], [c | spaces], _) do
+    dedent_multline_by_spaces(line, spaces, :body)
+  end
+
+  def dedent_multline_by_spaces(
+    [c1 | line],
+    [c2 | spaces],
+    _
+  ) when (c1 != ?\t and c2 != ?\t) and is_utf8_space_like_char(c1) and is_utf8_space_like_char(c2) do
     dedent_multline_by_spaces(line, spaces, :body)
   end
 

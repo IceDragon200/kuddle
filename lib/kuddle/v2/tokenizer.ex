@@ -350,7 +350,7 @@ defmodule Kuddle.V2.Tokenizer do
     do_tokenize(
       rest,
       state,
-      [c2, c1 | acc],
+      [0x0A | acc],
       doc,
       add_line(meta, 1)
     )
@@ -376,7 +376,7 @@ defmodule Kuddle.V2.Tokenizer do
     do_tokenize(
       rest,
       state,
-      [c | acc],
+      [0x0A | acc],
       doc,
       add_line(meta, 1)
     )
@@ -514,7 +514,7 @@ defmodule Kuddle.V2.Tokenizer do
     doc,
     meta
   ) when is_utf8_twochar_newline(c1, c2) do
-    do_tokenize(rest, state, [c2, c1 | acc], doc, add_line(meta))
+    do_tokenize(rest, state, [0x0A | acc], doc, add_line(meta))
   end
 
   # 2 char newlines
@@ -536,7 +536,7 @@ defmodule Kuddle.V2.Tokenizer do
     doc,
     meta
   ) when is_utf8_newline_like_char(c) do
-    do_tokenize(rest, state, [c | acc], doc, add_col(meta, utf8_char_byte_size(c)))
+    do_tokenize(rest, state, [0x0A | acc], doc, add_line(meta))
   end
 
   defp do_tokenize(
