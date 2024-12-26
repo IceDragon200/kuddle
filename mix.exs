@@ -6,8 +6,9 @@ defmodule Kuddle.MixProject do
       name: "Kuddle",
       app: :kuddle,
       description: description(),
-      version: "0.3.0",
+      version: "1.0.0",
       elixir: "~> 1.9",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       package: package(),
@@ -24,13 +25,16 @@ defmodule Kuddle.MixProject do
 
   defp description do
     """
-    Kuddle is KDL Decoder, Encoder and utility library for Elixir.
+    Kuddle is a KDL Decoder, Encoder and utility library for Elixir.
     """
   end
 
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
   defp deps do
     [
-      {:decimal, "~> 1.0 or ~> 2.0"},
+      {:decimal, "~> 2.0"},
       {:ex_doc, "~> 0.16", only: :dev},
     ]
   end

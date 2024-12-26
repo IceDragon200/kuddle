@@ -1,115 +1,79 @@
 defmodule Kuddle.Utils do
-  @non_identifier_characters [?\\, ?<, ?>, ?{, ?}, ?;, ?[, ?], ?(, ?), ?=, ?,, ?"]
+  @moduledoc """
+  Common utility module for kuddle
+  """
+  import Kuddle.Tokens
+
+  defguard is_utf8_bom_char(c) when c == 0xFEFF
+  defguard is_utf8_sign_char(c) when c in [?+, ?-]
+  defguard is_utf8_digit_char(c) when c >= ?0 and c <= ?9
+  defguard is_utf8_scalar_char(c) when (c >= 0x0000 and c <= 0xD7FF) or (c >= 0xE000 and c <= 0x10FFFF)
+  defguard is_utf8_direction_control_char(c) when
+    (c >= 0x200E and c <= 0x200F) or
+    (c >= 0x2066 and c <= 0x2069) or
+    (c >= 0x202A and c <= 0x202E)
+
+  defmacro add_line(meta, amount \\ 1) do
+    quote do
+      r_token_meta(unquote(meta),
+        line_no: r_token_meta(unquote(meta), :line_no) + unquote(amount),
+        col_no: 1
+      )
+    end
+  end
+
+  defmacro add_col(meta, amount \\ 1) do
+    quote do
+      r_token_meta(unquote(meta),
+        col_no: r_token_meta(unquote(meta), :col_no) + unquote(amount)
+      )
+    end
+  end
+
+  def utf8_char_byte_size(c) when c < 0x80 do
+    1
+  end
+
+  def utf8_char_byte_size(c) when c < 0x800 do
+    2
+  end
+
+  def utf8_char_byte_size(c) when c < 0x10000 do
+    3
+  end
+
+  def utf8_char_byte_size(c) when c >= 0x10000 do
+    4
+  end
 
   @doc """
-  Check if a string is a valid identifier (that is a plain unbroken character sequence)
+  Converts a list to a binary, this also handles tokenizer specific escape tuples.
   """
-  @spec valid_identifier?(String.t()) :: boolean()
-  def valid_identifier?(str, state \\ :start)
-
-  def valid_identifier?(<<c::utf8, _rest::binary>>, _) when c in @non_identifier_characters do
-    false
+  @spec list_to_utf8_binary(list()) :: binary()
+  def list_to_utf8_binary(list) when is_list(list) do
+    list
+    |> Enum.map(fn
+      {:esc, c} when is_integer(c) -> <<c::utf8>>
+      {:esc, c} when is_binary(c) -> c
+      {:esc, c} when is_list(c) -> list_to_utf8_binary(c)
+      c when is_integer(c) -> <<c::utf8>>
+      c when is_binary(c) -> c
+      c when is_list(c) -> list_to_utf8_binary(c)
+    end)
+    |> IO.iodata_to_binary()
   end
 
-  def valid_identifier?(<<c::utf8, _rest::binary>>, _) when c < 0x20 or c > 0x10FFFF do
-    false
+  def trim_leading_and_count(rest, pattern) do
+    do_trim_leading_and_count(rest, byte_size(pattern), pattern, 0)
   end
 
-  def valid_identifier?(<<c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
-    false
-  end
+  defp do_trim_leading_and_count(rest, pat_size, pattern, count) do
+    case rest do
+      <<^pattern::binary-size(pat_size), rest::binary>> ->
+        do_trim_leading_and_count(rest, pat_size, pattern, count + 1)
 
-  def valid_identifier?(<<_c::utf8, rest::binary>>, _) do
-    valid_identifier?(rest, :body)
-  end
-
-  def valid_identifier?(<<>>, :start) do
-    true
-  end
-
-  def valid_identifier?(<<>>, :body) do
-    true
-  end
-
-  def need_quote?(str, state \\ :start)
-
-  def need_quote?(<<c::utf8, _rest::binary>>, _) when c in @non_identifier_characters do
-    true
-  end
-
-  def need_quote?(<<c::utf8, _rest::binary>>, _) when c < 0x20 or c > 0x10FFFF do
-    true
-  end
-
-  def need_quote?(<<c::utf8, _rest::binary>>, :start) when c in ?0..?9 do
-    true
-  end
-
-  def need_quote?(<<_c::utf8, rest::binary>>, _) do
-    need_quote?(rest, :body)
-  end
-
-  def need_quote?(<<>>, :start) do
-    true
-  end
-
-  def need_quote?(<<>>, :body) do
-    false
-  end
-
-  def parse_float_string(bin, state \\ :start, acc \\ [])
-
-  def parse_float_string(<<>>, :start, _acc) do
-    {:error, :invalid_float_format}
-  end
-
-  def parse_float_string(<<>>, state, acc) when state in [:fraction, :exponent] do
-    {:ok, IO.iodata_to_binary(Enum.reverse(acc))}
-  end
-
-  def parse_float_string(<<c::utf8, rest::binary>>, :start, acc) when c == ?- or
-                                                                      c == ?+  do
-    parse_float_string(rest, :start_number, [<<c::utf8>> | acc])
-  end
-
-  def parse_float_string(<<c::utf8, rest::binary>>, state, acc) when c in ?0..?9 and state in [:start, :start_number, :body] do
-    parse_float_string(rest, :body, [<<c::utf8>> | acc])
-  end
-
-  def parse_float_string(<<".", rest::binary>>, :body, acc) do
-    parse_float_string(rest, :start_fraction, [<<".">> | acc])
-  end
-
-  def parse_float_string(<<"_", rest::binary>>, :body, acc) do
-    parse_float_string(rest, :body, acc)
-  end
-
-  def parse_float_string(<<"E", rest::binary>>, state, acc) when state in [:body, :fraction] do
-    parse_float_string(rest, :start_exponent, [<<"E">> | acc])
-  end
-
-  def parse_float_string(<<"e", rest::binary>>, state, acc) when state in [:body, :fraction] do
-    parse_float_string(rest, :start_exponent, [<<"E">> | acc])
-  end
-
-  def parse_float_string(<<c::utf8, rest::binary>>, state, acc) when c in ?0..?9 and state in [:fraction, :start_fraction] do
-    parse_float_string(rest, :fraction, [<<c::utf8>> | acc])
-  end
-
-  def parse_float_string(<<c::utf8, rest::binary>>, :start_exponent, acc) when c == ?- or
-                                                                               c == ?+  do
-    parse_float_string(rest, :exponent, [<<c::utf8>> | acc])
-  end
-
-  def parse_float_string(<<c::utf8, rest::binary>>, state, acc) when c in ?0..?9 and state in [:start_exponent, :exponent] do
-    parse_float_string(rest, :exponent, [<<c::utf8>> | acc])
-  end
-
-  def parse_float_string(<<"_", rest::binary>>, :exponent, acc) do
-    parse_float_string(rest, :exponent, acc)
-  end
-
-  def parse_float_string(_, _state, _acc) do
-    {:error, :unexpected_characters}
+      _ ->
+        {rest, count, String.duplicate(pattern, count)}
+    end
   end
 end
