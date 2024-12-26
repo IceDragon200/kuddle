@@ -1,8 +1,6 @@
 # Kuddle
 
-Kuddle is a [KDL](https://github.com/kdl-org/kdl) Encoder and Decoder library for Elixir.
-
-It is currently up to date with KDL v2 Draft 4.
+Kuddle is a [KDL v1 and v2](https://github.com/kdl-org/kdl) Encoder and Decoder library for Elixir.
 
 ## Installation (V2)
 
@@ -16,7 +14,7 @@ defp deps do
 end
 ```
 
-## Installation (V1)
+## Installation (legacy V1)
 
 To add `kuddle` with original v1 to your project:
 
