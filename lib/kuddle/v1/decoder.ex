@@ -551,9 +551,6 @@ defmodule Kuddle.V1.Decoder do
     case parse_float_string(value) do
       {:ok, value} ->
         case Decimal.parse(value) do
-          {:ok, %Decimal{} = decimal} ->
-            {:ok, %Value{value: decimal, type: :float}}
-
           {%Decimal{} = decimal, ""} ->
             {:ok, %Value{value: decimal, type: :float}}
 
