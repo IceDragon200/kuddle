@@ -26,6 +26,20 @@ defmodule Kuddle.V1.Decoder do
   @type document :: [document_node()]
 
   @doc """
+  Same as decode/1, but will raise a Kuddle.DecodeError on error from decode.
+  """
+  @spec decode!(String.t()) :: document()
+  def decode!(blob) when is_binary(blob) do
+    case decode(blob) do
+      {:ok, tokens, _rest} ->
+        tokens
+
+      {:error, reason} ->
+        raise Kuddle.DecodeError, reason: reason
+    end
+  end
+
+  @doc """
   Tokenize and parse a given KDL document.
 
   If successful, it will return `{:ok, document, tokens}`, where document is the list of nodes that

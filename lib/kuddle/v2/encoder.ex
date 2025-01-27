@@ -11,6 +11,20 @@ defmodule Kuddle.V2.Encoder do
   @type document :: Kuddle.V2.Decoder.document()
 
   @doc """
+  Same as encode/1,2, but will raise a Kuddle.EncodeError on error from decode.
+  """
+  @spec encode!(document(), Keyword.t()) :: String.t()
+  def encode!(document, options \\ []) do
+    case encode(document, options) do
+      {:ok, blob} ->
+        blob
+
+      {:error, reason} ->
+        raise Kuddle.EncodeError, reason: reason
+    end
+  end
+
+  @doc """
   Encodes a kuddle document as a KDL string
   """
   @spec encode(document(), Keyword.t()) ::
