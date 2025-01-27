@@ -11,13 +11,15 @@ defmodule Kuddle do
   """
   @type document :: Kuddle.V2.Decoder.document()
 
+  @type tokens :: Kuddle.V2.Tokenizer.tokens()
+
   @doc """
   Decode a KDL document into kuddle nodes
 
   ## Usage
 
       Kuddle.decode(blob)
-      {:ok, [%Kuddle.Node{name: "node"}]} = Kuddle.decode("node")
+      {:ok, [%Kuddle.Node{name: "node"}], []} = Kuddle.decode("node")
 
   ## Examples
 
@@ -26,7 +28,7 @@ defmodule Kuddle do
 
   """
   @spec decode(String.t()) ::
-          {:ok, document(), rest::String.t()}
+          {:ok, document(), rest::tokens()}
           | {:error, term()}
   defdelegate decode(blob), to: Kuddle.V2.Decoder
 
