@@ -164,7 +164,7 @@ defmodule Kuddle.V2.Encoder do
     {:ok, "#inf"}
   end
 
-  defp encode_value_value(%Value{type: :infinity, value: :'-infinity'}, _options) do
+  defp encode_value_value(%Value{type: :infinity, value: :"-infinity"}, _options) do
     {:ok, "#-inf"}
   end
 

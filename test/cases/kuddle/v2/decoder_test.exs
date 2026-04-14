@@ -598,7 +598,7 @@ defmodule Kuddle.V2.DecoderTest do
         %Node{
           name: "term--inf",
           attributes: [
-            %{type: :infinity, value: :'-infinity'},
+            %{type: :infinity, value: :"-infinity"},
           ],
           children: nil
         },

@@ -821,7 +821,7 @@ defmodule Kuddle.V2.Decoder do
   end
 
   defp decode_term("#-inf") do
-    {:ok, %Value{type: :infinity, value: :'-infinity'}}
+    {:ok, %Value{type: :infinity, value: :"-infinity"}}
   end
 
   defp decode_term("#nan") do
