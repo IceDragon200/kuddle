@@ -88,19 +88,13 @@ defmodule Kuddle.V2.Encoder do
         list when is_list(list) ->
           result = [result, " {\n"]
           result =
-            case children do
-              [] ->
-                result
-
-              children ->
-                case do_encode(children, [], options) do
-                  {:ok, rows} ->
-                    [
-                      result,
-                      indent(rows, "    "),
-                      "\n",
-                    ]
-                end
+            case do_encode(children, [], options) do
+              {:ok, rows} ->
+                [
+                  result,
+                  indent(rows, "    "),
+                  "\n",
+                ]
             end
 
           [result, "}\n"]

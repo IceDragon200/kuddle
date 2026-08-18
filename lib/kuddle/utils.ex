@@ -69,7 +69,7 @@ defmodule Kuddle.Utils do
 
   defp do_trim_leading_and_count(rest, pat_size, pattern, count) do
     case rest do
-      <<^pattern::binary-size(pat_size), rest::binary>> ->
+      <<^pattern::binary-size(^pat_size), rest::binary>> ->
         do_trim_leading_and_count(rest, pat_size, pattern, count + 1)
 
       _ ->
