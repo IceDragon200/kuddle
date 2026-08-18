@@ -88,19 +88,13 @@ defmodule Kuddle.V2.Encoder do
         list when is_list(list) ->
           result = [result, " {\n"]
           result =
-            case children do
-              [] ->
-                result
-
-              children ->
-                case do_encode(children, [], options) do
-                  {:ok, rows} ->
-                    [
-                      result,
-                      indent(rows, "    "),
-                      "\n",
-                    ]
-                end
+            case do_encode(children, [], options) do
+              {:ok, rows} ->
+                [
+                  result,
+                  indent(rows, "    "),
+                  "\n",
+                ]
             end
 
           [result, "}\n"]
@@ -164,7 +158,7 @@ defmodule Kuddle.V2.Encoder do
     {:ok, "#inf"}
   end
 
-  defp encode_value_value(%Value{type: :infinity, value: :'-infinity'}, _options) do
+  defp encode_value_value(%Value{type: :infinity, value: :"-infinity"}, _options) do
     {:ok, "#-inf"}
   end
 
